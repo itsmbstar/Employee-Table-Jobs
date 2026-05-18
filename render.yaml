@@ -1,0 +1,30 @@
+# render.yaml — Render.com deployment configuration
+# This tells Render how to build and serve the Next.js static export
+
+services:
+  - type: web
+    name: employee-table-jobs
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./out
+    envVars:
+      - key: FIREBASE_PROJECT_ID
+        value: employee-table-dcac5
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false   # set manually in Render dashboard
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false   # set manually in Render dashboard
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /sitemap.xml
+        name: Content-Type
+        value: application/xml
+    routes:
+      - type: rewrite
+        source: /sitemap.xml
+        destination: /sitemap.xml

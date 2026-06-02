@@ -1,0 +1,12 @@
+<%- include('../partials/header') %>
+<main class="container section">
+  <div class="auth-card">
+    <h1>🔐 Admin Login</h1>
+    <p class="text-muted">Employee Table Admin Panel</p>
+    <form method="POST" action="/admin/login" class="auth-form">
+      <div class="form-group"><label for="password">Admin Password</label><input type="password" id="password" name="password" required placeholder="Enter admin password" class="form-input" autofocus></div>
+      <button type="submit" class="btn btn-primary btn-full">Login to Admin</button>
+    </form>
+  </div>
+</main>
+<%- include('../partials/footer') %>

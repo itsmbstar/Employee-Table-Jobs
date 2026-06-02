@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <meta name="description" content="<%= metaDescription %>">
+  <link rel="canonical" href="<%= canonical %>">
+  <meta name="robots" content="index, follow">
+  <meta name="author" content="Employee Table">
+  <meta property="og:type"        content="<%= typeof ogType!=='undefined'?ogType:'website' %>">
+  <meta property="og:title"       content="<%= title %>">
+  <meta property="og:description" content="<%= metaDescription %>">
+  <meta property="og:image"       content="<%= (typeof ogImage!=='undefined'&&ogImage)?ogImage:domain+'/img/logo.png' %>">
+  <meta property="og:url"         content="<%= canonical %>">
+  <meta property="og:site_name"   content="Employee Table">
+  <meta property="og:locale"      content="en_IN">
+  <meta name="twitter:card"        content="summary_large_image">
+  <meta name="twitter:site"        content="@employeetable">
+  <meta name="twitter:title"       content="<%= title %>">
+  <meta name="twitter:description" content="<%= metaDescription %>">
+  <meta name="twitter:image"       content="<%= (typeof ogImage!=='undefined'&&ogImage)?ogImage:domain+'/img/logo.png' %>">
+  <link rel="icon"             type="image/png" href="/img/uploads/companylogo.png">
+  <link rel="apple-touch-icon" href="/img/uploads/companylogo.png">
+  <link rel="sitemap"          type="application/xml" href="/sitemap.xml">
+  <meta name="theme-color" content="#1e40af">
+  <!-- Organization schema on every page -->
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"Organization","name":"Employee Table","url":"<%= domain %>/","logo":"<%= domain %>/img/logo.png","description":"India's only free job portal where every listing is manually verified before going live.","foundingDate":"2021","contactPoint":{"@type":"ContactPoint","telephone":"+91-9619748275","contactType":"customer support","areaServed":"IN","availableLanguage":"English"},"sameAs":["https://www.facebook.com/emptable","https://x.com/employeetable","https://www.linkedin.com/company/employee-table/","https://www.instagram.com/emptable/"]}
+  </script>
+  <% if (typeof extraSchema!=='undefined'&&extraSchema) { %><%- extraSchema %><% } %>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<nav class="navbar" role="navigation" aria-label="Main navigation">
+  <div class="container nav-inner">
+    <a href="/" class="nav-logo" aria-label="Employee Table Home">
+      <img src="/img/uploads/logo.png" alt="Employee Table" width="110" height="36">
+    </a>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links" id="navLinks">
+      <a href="/"      class="nav-link">Home</a>
+      <a href="/#jobs" class="nav-link">Jobs</a>
+      <a href="/blog"  class="nav-link">Blog</a>
+      <a href="/#cities"   class="nav-link">Cities</a>
+      <a href="/#about"    class="nav-link">About</a>
+      <% if(user){ %>
+        <a href="/profile" class="nav-link">👤 Profile</a>
+        <a href="/logout"  class="nav-link btn-outline">Logout</a>
+      <% }else{ %>
+        <a href="/login"  class="nav-link">Login</a>
+        <a href="/signup" class="nav-link btn-primary">Sign Up</a>
+      <% } %>
+      <a href="/#subscribe" class="nav-link btn-alert">🔔 Job Alerts</a>
+    </div>
+  </div>
+</nav>
+<% if(success&&success.length>0){ %><div class="flash flash-success"><%= success[0] %> <button onclick="this.parentElement.remove()">×</button></div><% } %>
+<% if(error&&error.length>0){ %><div class="flash flash-error"><%= error[0] %> <button onclick="this.parentElement.remove()">×</button></div><% } %>

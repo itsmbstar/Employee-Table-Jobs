@@ -1,0 +1,47 @@
+<%
+var extraSchema = '<script type="application/ld+json">' + articleSchema + '<\/script><script type="application/ld+json">' + breadcrumb + '<\/script>';
+%>
+<%- include('../partials/header') %>
+<main class="container section blog-post-container">
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/">Home</a> › <a href="/blog">Blog</a> › <%= post.title.substring(0,40) %><%= post.title.length>40?'…':'' %>
+  </nav>
+  <article itemscope itemtype="https://schema.org/BlogPosting" class="blog-post-article">
+    <% if(post.coverImage){ %><img src="<%= post.coverImage %>" alt="<%= post.title %>" class="blog-post-cover" itemprop="image" width="800" height="400" loading="eager"><% } %>
+    <h1 itemprop="headline" class="blog-post-title"><%= post.title %></h1>
+    <div class="blog-post-meta">
+      <time itemprop="datePublished" datetime="<%= new Date(post.timestamp).toISOString() %>">📅 <%= timeAgo(post.timestamp) %></time>
+      <span itemprop="author" itemscope itemtype="https://schema.org/Organization">🏢 <span itemprop="name">Employee Table</span></span>
+      <span>👁 <%= views %> views</span>
+      <% if(post.tags){ %><span>🏷 <%= post.tags %></span><% } %>
+    </div>
+    <div class="blog-post-content" itemprop="articleBody"><%- post.content %></div>
+    <div class="share-row">
+      <span>Share:</span>
+      <a href="https://wa.me/?text=<%= encodeURIComponent(post.title+' '+domain+'/blog/'+post.slug) %>" target="_blank" rel="noopener" class="btn btn-whatsapp btn-sm">💬 WhatsApp</a>
+      <a href="https://www.linkedin.com/sharing/share-offsite/?url=<%= encodeURIComponent(domain+'/blog/'+post.slug) %>" target="_blank" rel="noopener" class="btn btn-outline btn-sm">in LinkedIn</a>
+      <button onclick="navigator.clipboard.writeText(window.location.href).then(()=>{this.textContent='✅ Copied!';setTimeout(()=>this.textContent='🔗 Copy Link',2000)})" class="btn btn-outline btn-sm">🔗 Copy Link</button>
+    </div>
+  </article>
+  <div class="blog-cta">
+    <h2>Looking for verified jobs?</h2>
+    <p>Browse 100% free, manually verified job listings across India. Updated daily.</p>
+    <a href="/" class="btn btn-primary">Browse Jobs Now →</a>
+  </div>
+  <% if(related.length>0){ %>
+    <section class="related-posts">
+      <h2>More from the Blog</h2>
+      <div class="blog-grid blog-grid-sm">
+        <% related.forEach(p=>{ %>
+          <article class="blog-card">
+            <div class="blog-card-body">
+              <a href="/blog/<%= p.slug %>"><h3><%= p.title %></h3></a>
+              <p class="text-muted"><%= timeAgo(p.timestamp) %></p>
+            </div>
+          </article>
+        <% }) %>
+      </div>
+    </section>
+  <% } %>
+</main>
+<%- include('../partials/footer') %>

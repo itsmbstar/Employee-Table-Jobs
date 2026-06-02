@@ -1,0 +1,13 @@
+<%- include('../partials/header') %>
+<main class="container section">
+  <div class="auth-card">
+    <h1>Login to Employee Table</h1>
+    <p class="text-muted">Don't have an account? <a href="/signup">Sign up free</a></p>
+    <form method="POST" action="/login" class="auth-form">
+      <div class="form-group"><label for="email">Email Address</label><input type="email" id="email" name="email" required placeholder="you@example.com" class="form-input"></div>
+      <div class="form-group"><label for="password">Password</label><input type="password" id="password" name="password" required placeholder="Your password" class="form-input"></div>
+      <button type="submit" class="btn btn-primary btn-full">Login</button>
+    </form>
+  </div>
+</main>
+<%- include('../partials/footer') %>

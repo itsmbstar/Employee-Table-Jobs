@@ -1,0 +1,45 @@
+<article class="job-card" itemscope itemtype="https://schema.org/JobPosting">
+  <div class="job-card-top">
+    <% if(job.companyLogo&&!job.companyLogo.startsWith('data:')&&job.companyLogo.startsWith('http')){ %>
+      <img src="<%= job.companyLogo %>" alt="<%= job.companyName %> logo" class="company-logo" width="48" height="48" loading="lazy" onerror="this.style.display='none'">
+    <% }else{ %>
+      <div class="company-logo-placeholder"><%= (job.companyName||'C').charAt(0).toUpperCase() %></div>
+    <% } %>
+    <div class="job-card-title-block">
+      <h3 class="job-title" itemprop="title">
+        <a href="/job/<%= job.slug %>"><%= job.jobRole %></a>
+      </h3>
+      <p class="job-company" itemprop="hiringOrganization" itemscope itemtype="https://schema.org/Organization">
+        <span itemprop="name"><%= job.companyName %></span>
+      </p>
+    </div>
+    <% if(job.verified){ %><span class="verified-badge" title="Verified by Employee Table">✅</span><% } %>
+  </div>
+  <div class="job-meta">
+    <span itemprop="jobLocation" itemscope itemtype="https://schema.org/Place">
+      <span itemprop="address" itemscope itemtype="https://schema.org/PostalAddress">
+        📍 <span itemprop="addressLocality"><%= job.workLocation %></span>
+      </span>
+    </span>
+    <span>💼 <span itemprop="employmentType"><%= job.jobType %></span></span>
+    <span>⏱ <%= job.experience %></span>
+    <span>🎓 <%= job.qualification %></span>
+    <% if(job.package){ %><span>💰 <%= job.package %></span><% } %>
+  </div>
+  <div class="job-footer">
+    <span class="job-time"><%= timeAgo(job.timestamp) %></span>
+    <span class="job-clicks">👥 <%= job.clicks||0 %> applied</span>
+  </div>
+  <div class="job-actions">
+    <a href="/job/<%= job.slug %>" class="btn btn-outline btn-sm">View Details</a>
+    <% if(job.applyLink){ %>
+      <a href="<%= job.applyLink %>" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" onclick="fetch('/job/<%= job.slug %>/click',{method:'POST'})" aria-label="Apply for <%= job.jobRole %>">Apply Now ↗</a>
+    <% } %>
+    <% if(job.whatsappNumber){ %>
+      <a href="https://wa.me/<%= job.whatsappNumber.replace(/\D/g,'') %>?text=<%= encodeURIComponent('Hi, I am interested in the '+job.jobRole+' role at '+job.companyName+' listed on Employee Table.') %>" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp btn-sm">💬 WhatsApp HR</a>
+    <% } %>
+    <% if(job.callNumber){ %>
+      <a href="tel:<%= job.callNumber %>" class="btn btn-call btn-sm">📞 Call HR</a>
+    <% } %>
+  </div>
+</article>

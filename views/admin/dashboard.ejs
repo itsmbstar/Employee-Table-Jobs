@@ -1,0 +1,197 @@
+<%- include('../partials/header') %>
+<div class="admin-wrap">
+<aside class="admin-sidebar">
+  <div class="admin-logo">⚙️ Admin Panel</div>
+  <nav class="admin-nav">
+    <a class="admin-nav-link" onclick="showTab('stats')">📊 Stats</a>
+    <a class="admin-nav-link" onclick="showTab('jobs')">💼 Jobs (<%= stats.jobs %>)</a>
+    <a class="admin-nav-link" onclick="showTab('addjob')">➕ Add Job</a>
+    <a class="admin-nav-link" onclick="showTab('blog')">📝 Blog (<%= stats.posts %>)</a>
+    <a class="admin-nav-link" onclick="showTab('addblog')">➕ Add Post</a>
+    <a class="admin-nav-link" onclick="showTab('subs')">📧 Subscribers (<%= stats.subs %>)</a>
+    <a href="/admin/logout" class="admin-nav-link logout">🚪 Logout</a>
+  </nav>
+</aside>
+<main class="admin-main">
+
+  <section id="tab-stats" class="admin-tab">
+    <h1>Dashboard</h1>
+    <div class="admin-stats">
+      <div class="admin-stat"><span class="stat-val"><%= stats.jobs %></span><span class="stat-label">Jobs</span></div>
+      <div class="admin-stat"><span class="stat-val"><%= stats.posts %></span><span class="stat-label">Blog Posts</span></div>
+      <div class="admin-stat"><span class="stat-val"><%= stats.subs %></span><span class="stat-label">Subscribers</span></div>
+      <div class="admin-stat"><span class="stat-val"><%= stats.users %></span><span class="stat-label">Users</span></div>
+      <div class="admin-stat"><span class="stat-val"><%= stats.clicks %></span><span class="stat-label">Total Clicks</span></div>
+      <div class="admin-stat"><span class="stat-val"><%= stats.views %></span><span class="stat-label">Total Views</span></div>
+    </div>
+  </section>
+
+  <section id="tab-jobs" class="admin-tab hidden">
+    <h1>Manage Jobs (<%= jobs.length %>)</h1>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead><tr><th>Role</th><th>Company</th><th>Location</th><th>Type</th><th>Clicks</th><th>Views</th><th>Actions</th></tr></thead>
+        <tbody>
+          <% jobs.forEach(job=>{ %>
+            <tr>
+              <td><a href="/job/<%= job.slug %>" target="_blank"><%= job.jobRole %></a></td>
+              <td><%= job.companyName %></td>
+              <td><%= job.workLocation %></td>
+              <td><%= job.jobType %></td>
+              <td><%= job.clicks||0 %></td>
+              <td><%= views['job_'+job.id]||0 %></td>
+              <td class="admin-actions">
+                <button class="btn btn-sm btn-outline" onclick="editJob('<%= job.id %>')">✏️ Edit</button>
+                <form method="POST" action="/admin/job/delete/<%= job.id %>" style="display:inline" onsubmit="return confirm('Delete this job?')">
+                  <button type="submit" class="btn btn-sm btn-danger">🗑</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="tab-addjob" class="admin-tab hidden">
+    <h1 id="job-form-title">➕ Add New Job</h1>
+    <form method="POST" id="jobForm" action="/admin/job/add" enctype="multipart/form-data" class="admin-form">
+      <div class="form-row">
+        <div class="form-group"><label>Job Role *</label><input type="text" name="jobRole" id="f-jobRole" required class="form-input" placeholder="e.g. Software Engineer"></div>
+        <div class="form-group"><label>Company Name *</label><input type="text" name="companyName" id="f-companyName" required class="form-input" placeholder="e.g. TCS"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Work Location *</label>
+          <select name="workLocation" id="f-workLocation" class="form-input">
+            <% cities.forEach(c=>{ %><option value="<%= c.name %>"><%= c.name %></option><% }) %>
+          </select>
+        </div>
+        <div class="form-group"><label>Job Type *</label>
+          <select name="jobType" id="f-jobType" class="form-input">
+            <% ['Full-Time','Internship','Part-Time','Remote','Contract'].forEach(t=>{ %><option value="<%= t %>"><%= t %></option><% }) %>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Experience</label><input type="text" name="experience" id="f-experience" class="form-input" placeholder="e.g. Fresher / 0-2 years"></div>
+        <div class="form-group"><label>Qualification</label><input type="text" name="qualification" id="f-qualification" class="form-input" placeholder="e.g. BE/BTech"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Package / Salary</label><input type="text" name="package" id="f-package" class="form-input" placeholder="e.g. 3.36 LPA"></div>
+        <div class="form-group"><label>Apply Link</label><input type="url" name="applyLink" id="f-applyLink" class="form-input" placeholder="https://..."></div>
+      </div>
+      <div class="form-group"><label>Skills (comma separated)</label><input type="text" name="skills" id="f-skills" class="form-input" placeholder="e.g. Python, Java, SQL"></div>
+      <div class="form-group"><label>Job Description (important for SEO &amp; Google for Jobs)</label><textarea name="description" id="f-description" class="form-input" rows="5" placeholder="Describe the role, responsibilities, and requirements..."></textarea></div>
+      <div class="form-group"><label>Company Logo URL (paste HTTP URL only — no base64)</label><input type="url" name="companyLogo" id="f-companyLogo" class="form-input" placeholder="https://..."></div>
+      <div class="form-group"><label>OR Upload Logo File</label><input type="file" name="companyLogoFile" accept="image/*" class="form-input"></div>
+      <div class="admin-contact-box">
+        <p class="contact-box-title">💬 Direct Contact Buttons (Optional)</p>
+        <p class="contact-box-sub">Leave blank to hide. Adds WhatsApp/Call buttons on job card.</p>
+        <div class="form-row">
+          <div class="form-group"><label>WhatsApp Number (with country code)</label><input type="tel" name="whatsappNumber" id="f-whatsappNumber" class="form-input" placeholder="+919619748275"></div>
+          <div class="form-group"><label>Call Number (with country code)</label><input type="tel" name="callNumber" id="f-callNumber" class="form-input" placeholder="+919619748275"></div>
+        </div>
+      </div>
+      <div class="form-group form-check">
+        <input type="checkbox" name="verified" id="f-verified" checked>
+        <label for="f-verified">Mark as Verified</label>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="jobSubmitBtn">➕ Add Job</button>
+        <button type="button" class="btn btn-outline" onclick="resetJobForm()">Cancel</button>
+      </div>
+    </form>
+  </section>
+
+  <section id="tab-blog" class="admin-tab hidden">
+    <h1>Manage Blog Posts (<%= posts.length %>)</h1>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead><tr><th>Title</th><th>Slug</th><th>Views</th><th>Posted</th><th>Actions</th></tr></thead>
+        <tbody>
+          <% posts.forEach(post=>{ %>
+            <tr>
+              <td><a href="/blog/<%= post.slug %>" target="_blank"><%= post.title %></a></td>
+              <td><code><%= post.slug %></code></td>
+              <td><%= views['blog_'+post.id]||0 %></td>
+              <td><%= timeAgo(post.timestamp) %></td>
+              <td class="admin-actions">
+                <button class="btn btn-sm btn-outline" onclick="editPost('<%= post.id %>')">✏️ Edit</button>
+                <form method="POST" action="/admin/blog/delete/<%= post.id %>" style="display:inline" onsubmit="return confirm('Delete this post?')">
+                  <button type="submit" class="btn btn-sm btn-danger">🗑</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="tab-addblog" class="admin-tab hidden">
+    <h1 id="post-form-title">➕ Add Blog Post</h1>
+    <form method="POST" id="postForm" action="/admin/blog/add" enctype="multipart/form-data" class="admin-form">
+      <div class="form-group"><label>Post Title *</label><input type="text" name="title" id="p-title" required class="form-input" placeholder="e.g. Top 10 IT Companies Hiring Freshers 2026"></div>
+      <div class="form-group"><label>Excerpt</label><input type="text" name="excerpt" id="p-excerpt" class="form-input" placeholder="Short summary shown in blog listing..."></div>
+      <div class="form-group"><label>Content (HTML supported)</label><textarea name="content" id="p-content" class="form-input" rows="14" placeholder="<p>Your post content...</p>"></textarea></div>
+      <div class="form-group"><label>Cover Image URL</label><input type="url" name="coverImage" id="p-coverImage" class="form-input" placeholder="https://..."></div>
+      <div class="form-group"><label>OR Upload Cover Image</label><input type="file" name="coverImageFile" accept="image/*" class="form-input"></div>
+      <div class="form-group"><label>Tags (comma separated)</label><input type="text" name="tags" id="p-tags" class="form-input" placeholder="e.g. fresher jobs, TCS, IT companies"></div>
+      <div class="admin-seo-box">
+        <p class="contact-box-title">🔍 SEO Settings</p>
+        <div class="form-group"><label>Custom Meta Title (leave blank to use post title)</label><input type="text" name="metaTitle" id="p-metaTitle" class="form-input" placeholder="e.g. Top 10 IT Companies Hiring Freshers 2026 | Employee Table"></div>
+        <div class="form-group"><label>Custom Meta Description (max 155 chars)</label><textarea name="metaDescription" id="p-metaDescription" class="form-input" rows="2" placeholder="155 character description for Google..."></textarea></div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="postSubmitBtn">➕ Publish Post</button>
+        <button type="button" class="btn btn-outline" onclick="resetPostForm()">Cancel</button>
+      </div>
+    </form>
+  </section>
+
+  <section id="tab-subs" class="admin-tab hidden">
+    <h1>Email Subscribers (<%= subs.length %>)</h1>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead><tr><th>Name</th><th>Email</th><th>City</th><th>Subscribed</th></tr></thead>
+        <tbody>
+          <% subs.forEach(s=>{ %>
+            <tr>
+              <td><%= s.name %></td>
+              <td><a href="mailto:<%= s.email %>"><%= s.email %></a></td>
+              <td><%= s.city||'Any' %></td>
+              <td><%= timeAgo(s.subscribedAt) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<script>
+function showTab(n){document.querySelectorAll('.admin-tab').forEach(t=>t.classList.add('hidden'));const el=document.getElementById('tab-'+n);if(el)el.classList.remove('hidden');}
+showTab('stats');
+async function editJob(id){
+  const j=await fetch('/admin/job/'+id+'/json').then(r=>r.json());
+  document.getElementById('job-form-title').textContent='✏️ Edit Job';
+  document.getElementById('jobForm').action='/admin/job/edit/'+id;
+  document.getElementById('jobSubmitBtn').textContent='💾 Save Changes';
+  ['jobRole','companyName','workLocation','jobType','experience','qualification','package','applyLink','skills','description','companyLogo','whatsappNumber','callNumber'].forEach(k=>{const el=document.getElementById('f-'+k);if(el)el.value=j[k]||'';});
+  const v=document.getElementById('f-verified');if(v)v.checked=j.verified!==false;
+  showTab('addjob');window.scrollTo(0,0);
+}
+async function editPost(id){
+  const p=await fetch('/admin/blog/'+id+'/json').then(r=>r.json());
+  document.getElementById('post-form-title').textContent='✏️ Edit Post';
+  document.getElementById('postForm').action='/admin/blog/edit/'+id;
+  document.getElementById('postSubmitBtn').textContent='💾 Save Changes';
+  ['title','excerpt','content','coverImage','tags','metaTitle','metaDescription'].forEach(k=>{const el=document.getElementById('p-'+k);if(el)el.value=p[k]||'';});
+  showTab('addblog');window.scrollTo(0,0);
+}
+function resetJobForm(){document.getElementById('job-form-title').textContent='➕ Add New Job';document.getElementById('jobForm').reset();document.getElementById('jobForm').action='/admin/job/add';document.getElementById('jobSubmitBtn').textContent='➕ Add Job';showTab('jobs');}
+function resetPostForm(){document.getElementById('post-form-title').textContent='➕ Add Blog Post';document.getElementById('postForm').reset();document.getElementById('postForm').action='/admin/blog/add';document.getElementById('postSubmitBtn').textContent='➕ Publish Post';showTab('blog');}
+</script>
+<%- include('../partials/footer') %>

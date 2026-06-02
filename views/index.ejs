@@ -1,0 +1,151 @@
+<%- include('partials/header') %>
+<section class="hero">
+  <div class="container hero-inner">
+    <h1 class="hero-title">Find Verified Jobs in India — Free for Freshers &amp; Professionals</h1>
+    <p class="hero-sub">Every listing manually verified. No scams. No fees. Updated daily since 2021. Jobs in Mumbai, Bangalore, Delhi, Pune, Hyderabad &amp; more.</p>
+    <div class="hero-badges">
+      <span>✅ 100% Free</span><span>✅ Manually Verified</span>
+      <span>✅ Fresher Friendly</span><span>✅ Daily Updates</span><span>✅ Remote &amp; On-site</span>
+    </div>
+    <a href="#jobs" class="btn btn-white">Browse Jobs Now</a>
+  </div>
+</section>
+
+<section class="search-section">
+  <div class="container">
+    <h2 class="section-label">Search Verified Jobs</h2>
+    <form class="search-form" method="GET" action="/" role="search">
+      <input type="search" name="q" value="<%= filters.q %>" placeholder="Job title, company, skill…" class="search-input" aria-label="Search jobs">
+      <select name="city" class="search-select" aria-label="Filter by city">
+        <option value="">All Cities</option>
+        <% cities.forEach(c=>{ %><option value="<%= c.name %>" <%= filters.city===c.name?'selected':'' %>><%= c.name %></option><% }) %>
+      </select>
+      <select name="exp" class="search-select" aria-label="Filter by experience">
+        <option value="">All Experience</option>
+        <option value="Fresher"     <%= filters.exp==='Fresher'?    'selected':'' %>>Fresher (0–1 yr)</option>
+        <option value="Experienced" <%= filters.exp==='Experienced'?'selected':'' %>>Experienced (2+ yrs)</option>
+      </select>
+      <select name="dateRange" class="search-select" aria-label="Filter by date posted">
+        <option value="">Any Time</option>
+        <option value="1" <%= filters.dateRange==='1'?'selected':'' %>>Last 24 Hours</option>
+        <option value="3" <%= filters.dateRange==='3'?'selected':'' %>>Last 3 Days</option>
+        <option value="7" <%= filters.dateRange==='7'?'selected':'' %>>Last Week</option>
+      </select>
+      <button type="submit" class="btn btn-primary">🔍 Search</button>
+      <% if(filters.q||filters.city||filters.exp||filters.dateRange){ %>
+        <a href="/" class="btn btn-outline">Clear</a>
+      <% } %>
+    </form>
+  </div>
+</section>
+
+<section class="stats-bar">
+  <div class="container stats-grid">
+    <div class="stat"><span class="stat-val">5,000+</span><span class="stat-label">Jobs Posted</span></div>
+    <div class="stat"><span class="stat-val">100%</span><span class="stat-label">Verified</span></div>
+    <div class="stat"><span class="stat-val">50,000+</span><span class="stat-label">Helped</span></div>
+    <div class="stat"><span class="stat-val">Since 2021</span><span class="stat-label">Trusted</span></div>
+  </div>
+</section>
+
+<main class="container section" id="jobs">
+  <div class="section-header">
+    <h2>Latest Verified Jobs</h2>
+    <span class="job-count-badge"><%= totalFiltered %> job<%= totalFiltered!==1?'s':'' %> found</span>
+  </div>
+  <% if(jobs.length===0){ %>
+    <div class="empty-state">
+      <p>No jobs match your search. Try broader keywords or <a href="/">clear filters</a>.</p>
+    </div>
+  <% }else{ %>
+    <div class="jobs-grid">
+      <% jobs.forEach(job=>{ %><%- include('partials/job-card',{job}) %><% }) %>
+    </div>
+    <% if(totalPages>1){ %>
+      <nav class="pagination" aria-label="Job listings pagination">
+        <% if(currentPage>1){ %><a href="/<%= buildQuery(currentPage-1) %>" class="page-btn">← Prev</a><% }else{ %><span class="page-btn page-btn-disabled">← Prev</span><% } %>
+        <% for(let p=1;p<=totalPages;p++){ %>
+          <% if(p===currentPage){ %><span class="page-btn page-btn-active" aria-current="page"><%= p %></span>
+          <% }else if(p===1||p===totalPages||Math.abs(p-currentPage)<=2){ %><a href="/<%= buildQuery(p) %>" class="page-btn"><%= p %></a>
+          <% }else if(Math.abs(p-currentPage)===3){ %><span class="page-btn page-btn-dots">…</span><% } %>
+        <% } %>
+        <% if(currentPage<totalPages){ %><a href="/<%= buildQuery(currentPage+1) %>" class="page-btn">Next →</a><% }else{ %><span class="page-btn page-btn-disabled">Next →</span><% } %>
+      </nav>
+    <% } %>
+  <% } %>
+</main>
+
+<section class="section bg-light" id="cities">
+  <div class="container">
+    <h2 class="text-center">Browse Jobs by City</h2>
+    <p class="text-center text-muted">Verified jobs across India's top hiring cities — updated every day.</p>
+    <div class="cities-grid">
+      <% cities.forEach(c=>{ %>
+        <a href="/jobs-in-<%= c.slug %>" class="city-card" aria-label="Browse jobs in <%= c.name %>">
+          <span class="city-emoji"><%= c.emoji %></span>
+          <h3><%= c.name %></h3>
+          <p><%= c.industries %></p>
+        </a>
+      <% }) %>
+    </div>
+  </div>
+</section>
+
+<section class="subscribe-section" id="subscribe">
+  <div class="container subscribe-inner">
+    <h2>Never Miss a Job — Get Free Alerts</h2>
+    <p>Verified job openings delivered to your inbox every morning. Free forever.</p>
+    <form class="subscribe-form" id="subForm">
+      <input type="text"  id="sub-name"  placeholder="Your name"    required class="sub-input" autocomplete="name">
+      <input type="email" id="sub-email" placeholder="Email address" required class="sub-input" autocomplete="email">
+      <select id="sub-city" class="sub-input" aria-label="Preferred city">
+        <option value="">Any City</option>
+        <% cities.forEach(c=>{ %><option value="<%= c.name %>"><%= c.name %></option><% }) %>
+      </select>
+      <button type="submit" class="btn btn-white">🔔 Subscribe Free</button>
+    </form>
+    <p id="sub-msg" class="sub-msg hidden"></p>
+    <p class="sub-note">🔒 No spam. Unsubscribe anytime.</p>
+  </div>
+</section>
+
+<section class="section" id="why">
+  <div class="container">
+    <h2 class="text-center">Why Job Seekers Choose Employee Table</h2>
+    <div class="why-grid">
+      <div class="why-card"><div class="why-icon">🛡️</div><h3>100% Verified Listings</h3><p>Every job is manually checked before it goes live. No ghost postings, no scam links.</p></div>
+      <div class="why-card"><div class="why-icon">💚</div><h3>Always Free for Candidates</h3><p>No premium plans, no hidden fees. Free for all job seekers, always.</p></div>
+      <div class="why-card"><div class="why-icon">🎓</div><h3>Built for Freshers First</h3><p>We focus on 0–2 year experience roles, off-campus drives, and internships.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section bg-light" id="about">
+  <div class="container text-center">
+    <h2>About Employee Table</h2>
+    <p class="about-text">Employee Table specializes in providing <strong>verified job updates</strong> completely <strong>free of cost</strong>, with a special focus on freshers entering the job market. Since 2021, we've helped thousands of candidates find legitimate opportunities by manually verifying each listing. No hidden fees, no scams — just real verified opportunities across India.</p>
+  </div>
+</section>
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is Employee Table free for job seekers?","acceptedAnswer":{"@type":"Answer","text":"Yes, 100% free. We never charge candidates fees to browse or apply."}},{"@type":"Question","name":"How are jobs verified?","acceptedAnswer":{"@type":"Answer","text":"Every listing is manually reviewed — company, role, and apply link verified before publishing."}},{"@type":"Question","name":"Does Employee Table have fresher jobs?","acceptedAnswer":{"@type":"Answer","text":"Yes, we specialize in 0-2 year experience roles, internships, and off-campus drives across India."}}]}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebSite","name":"Employee Table","url":"<%= domain %>/","potentialAction":{"@type":"SearchAction","target":"<%= domain %>/?q={search_term_string}","query-input":"required name=search_term_string"}}
+</script>
+
+<script>
+document.getElementById('subForm').addEventListener('submit',async function(e){
+  e.preventDefault();
+  const btn=this.querySelector('button[type="submit"]');
+  btn.disabled=true; btn.textContent='Subscribing…';
+  try{
+    const r=await fetch('/subscribe',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({name:document.getElementById('sub-name').value,email:document.getElementById('sub-email').value,city:document.getElementById('sub-city').value})});
+    const d=await r.json();
+    const msg=document.getElementById('sub-msg');
+    msg.textContent=d.message; msg.classList.remove('hidden');
+    document.querySelector('.subscribe-form').style.display='none';
+  }catch(err){btn.disabled=false;btn.textContent='🔔 Subscribe Free';}
+});
+</script>
+<%- include('partials/footer') %>

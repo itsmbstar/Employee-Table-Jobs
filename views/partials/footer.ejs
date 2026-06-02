@@ -1,0 +1,53 @@
+<footer class="footer" role="contentinfo">
+  <div class="container footer-grid">
+    <div class="footer-brand">
+      <div class="footer-logo-row">
+        <img src="/img/uploads/logo.png" alt="Employee Table" width="110" height="36" loading="lazy">
+        <span class="footer-brand-name">Employee Table</span>
+      </div>
+      <p class="footer-tagline">Providing verified job updates free of cost since 2021. India's only job portal where every listing is manually verified before going live.</p>
+      <div class="footer-social">
+        <a href="https://www.facebook.com/emptable"                      aria-label="Facebook"  rel="noopener" target="_blank">f</a>
+        <a href="https://x.com/employeetable"                            aria-label="Twitter"   rel="noopener" target="_blank">𝕏</a>
+        <a href="https://www.linkedin.com/company/employee-table/"       aria-label="LinkedIn"  rel="noopener" target="_blank">in</a>
+        <a href="https://www.instagram.com/emptable/"                    aria-label="Instagram" rel="noopener" target="_blank">📷</a>
+        <a href="https://chat.whatsapp.com/BOxrhvKzAwk3lLGL3GstyG"      aria-label="WhatsApp"  rel="noopener" target="_blank">💬</a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h3>Quick Links</h3>
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/#jobs">Latest Jobs</a></li>
+        <li><a href="/blog">Career Blog</a></li>
+        <li><a href="/#about">About Us</a></li>
+        <li><a href="/#subscribe">Job Alerts</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h3>Jobs by City</h3>
+      <ul>
+        <% cities.forEach(c=>{ %>
+          <li><a href="/jobs-in-<%= c.slug %>"><%= c.emoji %> <%= c.name %></a></li>
+        <% }) %>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h3>Contact</h3>
+      <p><a href="mailto:emptable1@gmail.com">emptable1@gmail.com</a></p>
+      <p><a href="tel:+919619748275">+91 9619748275</a></p>
+      <p style="margin-top:1rem;font-size:.8rem;color:var(--gray-400)">
+        <a href="/sitemap.xml" style="color:var(--gray-400)">Sitemap</a> &nbsp;·&nbsp;
+        <a href="/robots.txt"  style="color:var(--gray-400)">Robots.txt</a>
+      </p>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2021–<script>document.write(new Date().getFullYear())</script> Employee Table. All rights reserved. | India's only 100% manually verified free job portal.</p>
+  </div>
+</footer>
+<script>
+  const t=document.getElementById('navToggle'),l=document.getElementById('navLinks');
+  if(t&&l){t.addEventListener('click',()=>{const o=l.classList.toggle('open');t.setAttribute('aria-expanded',o);});}
+</script>
+</body></html>

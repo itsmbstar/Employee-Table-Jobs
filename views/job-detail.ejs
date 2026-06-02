@@ -1,0 +1,125 @@
+<%
+var extraSchema = '<script type="application/ld+json">' + jobSchema + '<\/script><script type="application/ld+json">' + breadcrumb + '<\/script>';
+%>
+<%- include('partials/header') %>
+
+<main class="container section">
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/">Home</a> › <a href="/">Jobs</a> › <%= job.jobRole %>
+  </nav>
+
+  <div class="job-detail-grid">
+    <div class="job-detail-main">
+      <div class="job-detail-card">
+
+        <div class="job-detail-header">
+          <% if(job.companyLogo&&!job.companyLogo.startsWith('data:')&&job.companyLogo.startsWith('http')){ %>
+            <img src="<%= job.companyLogo %>" alt="<%= job.companyName %> logo" class="company-logo-lg" width="80" height="80" onerror="this.style.display='none'">
+          <% }else{ %>
+            <div class="company-logo-lg-placeholder"><%= (job.companyName||'C').charAt(0).toUpperCase() %></div>
+          <% } %>
+          <div class="job-detail-title-block">
+            <h1 class="job-detail-title"><%= job.jobRole %></h1>
+            <p class="job-detail-company"><%= job.companyName %></p>
+            <p class="job-detail-posted">Posted <%= timeAgo(job.timestamp) %> &nbsp;·&nbsp; 👁 <%= views %> views &nbsp;·&nbsp; 👥 <%= job.clicks||0 %> applied</p>
+          </div>
+          <% if(job.verified){ %><span class="verified-badge-lg">✅ Verified</span><% } %>
+        </div>
+
+        <div class="job-detail-meta-grid">
+          <div class="detail-item"><span class="detail-label">📍 Location</span><span class="detail-val"><%= job.workLocation %></span></div>
+          <div class="detail-item"><span class="detail-label">💼 Job Type</span><span class="detail-val"><%= job.jobType %></span></div>
+          <div class="detail-item"><span class="detail-label">⏱ Experience</span><span class="detail-val"><%= job.experience %></span></div>
+          <div class="detail-item"><span class="detail-label">🎓 Qualification</span><span class="detail-val"><%= job.qualification %></span></div>
+          <% if(job.package){ %><div class="detail-item"><span class="detail-label">💰 Salary</span><span class="detail-val"><%= job.package %></span></div><% } %>
+          <% if(job.skills){ %><div class="detail-item"><span class="detail-label">🛠 Skills</span><span class="detail-val"><%= job.skills %></span></div><% } %>
+        </div>
+
+        <div class="job-description">
+          <h2>Job Description</h2>
+          <div class="job-description-body"><%- jobDescription %></div>
+        </div>
+
+        <div class="job-detail-actions">
+          <% if(job.applyLink){ %>
+            <a href="<%= job.applyLink %>" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg" onclick="fetch('/job/<%= job.slug %>/click',{method:'POST'})">Apply Now ↗</a>
+          <% } %>
+          <% if(job.whatsappNumber){ %>
+            <a href="https://wa.me/<%= job.whatsappNumber.replace(/\D/g,'') %>?text=<%= encodeURIComponent('Hi, I saw the '+job.jobRole+' role at '+job.companyName+' on Employee Table and would like to apply.') %>" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp btn-lg">💬 WhatsApp HR</a>
+          <% } %>
+          <% if(job.callNumber){ %>
+            <a href="tel:<%= job.callNumber %>" class="btn btn-call btn-lg">📞 Call HR</a>
+          <% } %>
+          <button class="btn btn-outline btn-lg" onclick="shareJob()" id="shareBtn">🔗 Share Job</button>
+          <% if(user){ %>
+            <button class="btn btn-outline btn-lg" id="saveBtn" onclick="saveJob()">🔖 Save Job</button>
+          <% }else{ %>
+            <a href="/login" class="btn btn-outline btn-lg">🔖 Save Job</a>
+          <% } %>
+        </div>
+
+        <p class="verified-note">✅ Verified by Employee Table — free to apply, no registration fee required.</p>
+      </div>
+    </div>
+
+    <aside class="job-detail-sidebar">
+      <div class="sidebar-card">
+        <h2>More Jobs in <%= job.workLocation %></h2>
+        <% if(related.length===0){ %>
+          <p class="text-muted">No other jobs in <%= job.workLocation %> right now.</p>
+          <a href="/" class="btn btn-outline btn-sm" style="margin-top:1rem">Browse All Jobs</a>
+        <% }else{ %>
+          <% related.forEach(j=>{ %>
+            <a href="/job/<%= j.slug %>" class="sidebar-job-item">
+              <strong><%= j.jobRole %></strong>
+              <span><%= j.companyName %></span>
+              <span class="text-muted"><%= j.jobType %></span>
+            </a>
+          <% }) %>
+        <% } %>
+      </div>
+      <div class="sidebar-card">
+        <h2>Jobs by City</h2>
+        <div class="city-pills">
+          <% cities.forEach(c=>{ %><a href="/jobs-in-<%= c.slug %>" class="city-pill"><%= c.emoji %> <%= c.name %></a><% }) %>
+        </div>
+      </div>
+      <div class="sidebar-card sidebar-cta">
+        <h2>🔔 Free Job Alerts</h2>
+        <p>Get verified jobs delivered to your inbox daily.</p>
+        <a href="/#subscribe" class="btn btn-primary btn-full" style="margin-top:1rem">Subscribe Free</a>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script>
+async function shareJob() {
+  const url  = window.location.href;
+  const title = '<%= job.jobRole %> at <%= job.companyName %> — Employee Table';
+  const text  = 'Check out this verified job: <%= job.jobRole %> at <%= job.companyName %> in <%= job.workLocation %>. Free to apply!';
+  if (navigator.share) {
+    try { await navigator.share({ title, text, url }); } catch(e) {}
+  } else {
+    try {
+      await navigator.clipboard.writeText(url);
+      const btn = document.getElementById('shareBtn');
+      btn.textContent = '✅ Link Copied!';
+      setTimeout(() => { btn.textContent = '🔗 Share Job'; }, 2500);
+    } catch(e) {
+      prompt('Copy this link:', url);
+    }
+  }
+}
+<% if(user){ %>
+async function saveJob() {
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  const r = await fetch('/job/<%= job.slug %>/save', { method:'POST' });
+  const d = await r.json();
+  if (d.ok) { btn.textContent = d.saved ? '✅ Saved!' : '🔖 Save Job'; }
+  btn.disabled = false;
+}
+<% } %>
+</script>
+<%- include('partials/footer') %>

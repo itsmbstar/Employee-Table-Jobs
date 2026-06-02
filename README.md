@@ -38,5 +38,5 @@ Admin: http://localhost:3000/admin (password: admin123)
 |---|---|---|
 | PORT | 3000 | Server port |
 | DOMAIN | https://www.employeetable.in | Used in canonical tags and sitemap |
-| ADMIN_PASS | admin123 | Admin panel password — CHANGE THIS |
+| ADMIN_PASS | ### | Admin panel password — CHANGE THIS |
 | SESSION_SECRET | et-secret-2025 | Session key — CHANGE THIS |

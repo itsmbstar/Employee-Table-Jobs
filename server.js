@@ -44,14 +44,14 @@ const FieldValue = admin.firestore.FieldValue;
 
 // ── Cities config ───────────────────────────────────────────────────────────
 const CITIES = [
-  { name:'Mumbai',    slug:'mumbai',    emoji:'🏙️', industries:'Finance, IT, Media',    about:'Mumbai is India\'s financial capital with thousands of verified jobs across BFSI, IT, media, and e-commerce. Major employers include TCS, HDFC Bank, Aditya Birla Group, and hundreds of startups.' },
-  { name:'Bangalore', slug:'bangalore', emoji:'💻', industries:'Tech, Startups, IT',     about:'Bangalore is India\'s Silicon Valley — home to Infosys, Wipro, Flipkart, and 10,000+ tech companies. IT, product management, data science and engineering roles dominate.' },
-  { name:'Delhi',     slug:'delhi',     emoji:'🏛️', industries:'Govt, Corporate, MNC',  about:'Delhi NCR covers Delhi, Gurgaon and Noida — a major corporate hub with strong demand across government, banking, consulting and MNC roles for all experience levels.' },
-  { name:'Hyderabad', slug:'hyderabad', emoji:'🔬', industries:'IT, Pharma, FMCG',      about:'Hyderabad is a fast-growing tech and pharma hub — home to Microsoft, Google, Amazon India, and major pharmaceutical companies. HITEC City is the primary IT hiring zone.' },
-  { name:'Pune',      slug:'pune',      emoji:'🎓', industries:'Auto, IT, Education',   about:'Pune has a strong mix of automotive, IT, and education sector jobs. Major employers include Tata Motors, Infosys, Wipro, and hundreds of IT services companies.' },
-  { name:'Noida',     slug:'noida',     emoji:'📡', industries:'IT, BPO, Startups',     about:'Noida is Delhi\'s tech and BPO neighbour with aggressive fresher hiring across IT services, customer support, digital marketing, and early-stage startups.' },
-  { name:'Chennai',   slug:'chennai',   emoji:'🌊', industries:'Manufacturing, IT',     about:'Chennai combines strong manufacturing (automotive, hardware) with a growing IT sector. Cognizant, HCLTech, Ford and many others regularly hire freshers here.' },
-  { name:'Remote',    slug:'remote',    emoji:'🌐', industries:'Work from anywhere',    about:'Remote jobs let you work from any city in India or worldwide. These verified remote roles span software engineering, content, digital marketing, and customer support.' },
+  { name:'Mumbai',    slug:'mumbai',    emoji:'🏙️', industries:'Finance, IT, Media',    about:'Mumbai is India\'s financial capital with thousands of verified jobs across BFSI, IT, media, and e-commerce.' },
+  { name:'Bangalore', slug:'bangalore', emoji:'💻', industries:'Tech, Startups, IT',     about:'Bangalore is India\'s Silicon Valley — home to Infosys, Wipro, Flipkart, and 10,000+ tech companies.' },
+  { name:'Delhi',     slug:'delhi',     emoji:'🏛️', industries:'Govt, Corporate, MNC',  about:'Delhi NCR covers Delhi, Gurgaon and Noida — a major corporate hub.' },
+  { name:'Hyderabad', slug:'hyderabad', emoji:'🔬', industries:'IT, Pharma, FMCG',      about:'Hyderabad is a fast-growing tech and pharma hub — home to Microsoft, Google, Amazon India.' },
+  { name:'Pune',      slug:'pune',      emoji:'🎓', industries:'Auto, IT, Education',   about:'Pune has a strong mix of automotive, IT, and education sector jobs.' },
+  { name:'Noida',     slug:'noida',     emoji:'📡', industries:'IT, BPO, Startups',     about:'Noida is Delhi\'s tech and BPO neighbour with aggressive fresher hiring.' },
+  { name:'Chennai',   slug:'chennai',   emoji:'🌊', industries:'Manufacturing, IT',     about:'Chennai combines strong manufacturing (automotive, hardware) with a growing IT sector.' },
+  { name:'Remote',    slug:'remote',    emoji:'🌐', industries:'Work from anywhere',    about:'Remote jobs let you work from any city in India or worldwide.' },
 ];
 
 // ── Synonym / fuzzy search ──────────────────────────────────────────────────
@@ -152,7 +152,7 @@ function docToPost(doc) {
   };
 }
 
-// ── Firestore DB Operations (all async, data persists forever) ──────────────
+// ── Firestore DB Operations ──────────────────────────────────────────────
 
 // JOBS
 async function getJobs() {

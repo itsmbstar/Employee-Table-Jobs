@@ -3,3 +3,4 @@ node_modules/
 public/img/uploads/
 *.log
 serviceAccountKey.json
+serviceAccountKey.json

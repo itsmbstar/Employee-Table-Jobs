@@ -576,18 +576,31 @@ app.get('/sitemap.xml', async (req, res) => {
   try {
     const [jobs, posts] = await Promise.all([getJobs(), getPosts()]);
     const now = new Date().toISOString().split('T')[0];
-    const urls = [
-      { loc: DOMAIN + '/', changefreq: 'daily', priority: '1.0', lastmod: now },
-      { loc: DOMAIN + '/blog', changefreq: 'weekly', priority: '0.8', lastmod: now },
-      ...CITIES.map(c => ({ loc: `${DOMAIN}/jobs-in-${c.slug}`, changefreq: 'daily', priority: '0.9', lastmod: now })),
-      ...jobs.map(j => ({ loc: `${DOMAIN}/job/${j.slug}`, changefreq: 'weekly', priority: '0.8', lastmod: new Date(j.timestamp).toISOString().split('T')[0] })),
-      ...posts.map(p => ({ loc: `${DOMAIN}/blog/${p.slug}`, changefreq: 'monthly', priority: '0.7', lastmod: new Date(p.timestamp).toISOString().split('T')[0] })),
-    ];
+    
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+    
+    // Homepage
+    xml += `  <url>\n    <loc>${DOMAIN}/</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n`;
+    
+    // Jobs
+    for (const job of jobs) {
+      xml += `  <url>\n    <loc>${DOMAIN}/job/${job.slug}</loc>\n    <lastmod>${new Date(job.timestamp).toISOString().split('T')[0]}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
+    }
+    
+    // Blog
+    for (const post of posts) {
+      xml += `  <url>\n    <loc>${DOMAIN}/blog/${post.slug}</loc>\n    <lastmod>${new Date(post.timestamp).toISOString().split('T')[0]}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+    }
+    
+    xml += '</urlset>';
     res.set('Content-Type', 'application/xml');
-    res.send('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls.map(u => `  <url>\n    <loc>${u.loc}</loc>\n    <lastmod>${u.lastmod}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`).join('\n') + '\n</urlset>');
-  } catch (e) { res.status(500).send('Sitemap error.'); }
+    res.send(xml);
+  } catch (error) {
+    console.error('Sitemap error:', error);
+    res.status(500).send('Sitemap temporarily unavailable. Please try again later.');
+  }
 });
-
 app.get('/robots.txt', (req, res) => { res.type('text/plain'); res.send(`User-agent: *\nAllow: /\n\nSitemap: ${DOMAIN}/sitemap.xml\n`); });
 
 app.post('/subscribe', async (req, res) => {

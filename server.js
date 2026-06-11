@@ -180,7 +180,35 @@ async function getJobBySlug(slug) {
 async function addJob(data) {
   const id = uuidv4();
   const slug = data.slug || makeSlug(`${data.jobRole || 'job'}-${id.slice(0, 6)}`);
-  await db.collection('jobs').doc(id).set({ ...data, id, slug, timestamp: Date.now() });
+  const jobData = {
+    ...data,
+    id,
+    slug,
+    timestamp: data.timestamp || Date.now(),
+    description: data.description || `${data.jobRole} opportunity at ${data.companyName}. Apply now for this ${data.jobType} role.`,
+    datePosted: data.datePosted || new Date().toISOString(),
+    validThrough: data.validThrough || new Date(Date.now() + 30 * 86400000).toISOString(),
+    jobLocation: {
+      address: {
+        addressLocality: data.workLocation || 'India',
+        addressCountry: 'IN'
+      }
+    },
+    experienceRequirements: data.experience === 'Fresher' ? 'Less than 1 year' : (data.experience === 'Experienced' ? '2+ years' : data.experience),
+    educationRequirements: data.qualification || "Bachelor's Degree",
+  };
+  if (data.package && parseSalaryToNumber(data.package)) {
+    jobData.baseSalary = {
+      '@type': 'MonetaryAmount',
+      currency: 'INR',
+      value: {
+        '@type': 'QuantitativeValue',
+        value: parseSalaryToNumber(data.package),
+        unitText: 'YEAR'
+      }
+    };
+  }
+  await db.collection('jobs').doc(id).set(jobData);
   return id;
 }
 
@@ -261,6 +289,7 @@ async function getAllViews() {
   const ref = await db.collection('meta').doc('views').get();
   return ref.exists ? ref.data() : {};
 }
+
 async function incrementView(key) {
   const ref = db.collection('meta').doc('views');
   await ref.set({ [key]: FieldValue.increment(1) }, { merge: true });
@@ -277,6 +306,15 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({ secret: SESSION_SECRET, resave: false, saveUninitialized: false, cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 } }));
 app.use(flash());
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', "default-src 'self' https:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:;");
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  next();
+});
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => { const d = path.join(__dirname, 'public', 'img', 'uploads'); if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }); cb(null, d); },
@@ -299,7 +337,7 @@ app.use((req, res, next) => {
 function requireUser(req, res, next) { if (!req.session.user) { req.flash('error', 'Please log in.'); return res.redirect('/login'); } next(); }
 function requireAdmin(req, res, next) { if (!req.session.isAdmin) return res.redirect('/admin/login'); next(); }
 
-// ── MIGRATION ROUTE ─────────────────────────────────────────────────────────
+// ── MIGRATION ROUTES ─────────────────────────────────────────────────────────
 app.get('/admin/migrate-slugs', async (req, res) => {
   if (req.query.key !== 'MIGRATE_NOW_2024') {
     return res.status(401).send('Unauthorized. Add ?key=MIGRATE_NOW_2024 to URL');
@@ -364,7 +402,7 @@ app.get('/', async (req, res) => {
     };
     
     res.render('index', { 
-      title: 'Verified Free Jobs for Freshers & Professionals in India | Employee Table',
+      title: 'Verified Jobs for Freshers & Professionals India',
       metaDescription: 'Find 100% verified free job opportunities for freshers and experienced professionals across India. No fees, no scams since 2021.',
       canonical: DOMAIN + '/',
       jobs: pageJobs,
@@ -392,13 +430,11 @@ app.get('/job/:slug', async (req, res) => {
         canonical: DOMAIN + '/404'
       });
     }
-    
     const views = await incrementView('job_' + job.id);
     const allJobs = await getJobs();
     const related = allJobs.filter(j => j.id !== job.id && j.workLocation === job.workLocation).slice(0, 3);
     const jobDescription = buildJobDescription(job);
     
-    // Generate jobSchema for SEO
     const posted = new Date(job.timestamp).toISOString();
     const validTil = new Date(job.timestamp + 30 * 86400000).toISOString();
     const salaryNum = parseSalaryToNumber(job.package);
@@ -410,41 +446,11 @@ app.get('/job/:slug', async (req, res) => {
       description: jobDescription,
       datePosted: posted,
       validThrough: validTil,
-      hiringOrganization: {
-        '@type': 'Organization',
-        name: job.companyName,
-        ...(job.companyLogo && job.companyLogo.startsWith('http') && { logo: job.companyLogo })
-      },
-      jobLocation: {
-        '@type': 'Place',
-        address: {
-          '@type': 'PostalAddress',
-          addressLocality: job.workLocation,
-          addressCountry: 'IN'
-        }
-      },
-      employmentType: {
-        'Full-Time': 'FULL_TIME',
-        'Part-Time': 'PART_TIME',
-        'Internship': 'INTERN',
-        'Contract': 'CONTRACTOR',
-        'Remote': 'FULL_TIME'
-      }[job.jobType] || 'FULL_TIME',
-      ...(salaryNum && {
-        baseSalary: {
-          '@type': 'MonetaryAmount',
-          currency: 'INR',
-          value: {
-            '@type': 'QuantitativeValue',
-            value: salaryNum,
-            unitText: 'YEAR'
-          }
-        }
-      }),
-      experienceRequirements: job.experience,
-      educationRequirements: job.qualification,
-      url: `${DOMAIN}/job/${job.slug}`,
-      directApply: true
+      hiringOrganization: { '@type': 'Organization', name: job.companyName },
+      jobLocation: { '@type': 'Place', address: { '@type': 'PostalAddress', addressLocality: job.workLocation, addressCountry: 'IN' } },
+      employmentType: { 'Full-Time': 'FULL_TIME', 'Part-Time': 'PART_TIME', 'Internship': 'INTERN', 'Contract': 'CONTRACTOR', 'Remote': 'FULL_TIME' }[job.jobType] || 'FULL_TIME',
+      ...(salaryNum && { baseSalary: { '@type': 'MonetaryAmount', currency: 'INR', value: { '@type': 'QuantitativeValue', value: salaryNum, unitText: 'YEAR' } } }),
+      url: `${DOMAIN}/job/${job.slug}`
     });
     
     const breadcrumb = JSON.stringify({
@@ -459,7 +465,7 @@ app.get('/job/:slug', async (req, res) => {
     
     res.render('job-detail', { 
       title: buildJobTitle(job),
-      metaDescription: `Apply for ${job.jobRole} at ${job.companyName} in ${job.workLocation}. ${job.experience} experience. Free verified job.`.substring(0, 155),
+      metaDescription: `Apply for ${job.jobRole} at ${job.companyName} in ${job.workLocation}. Free verified job.`,
       canonical: `${DOMAIN}/job/${job.slug}`,
       ogType: 'article',
       job, 
@@ -579,37 +585,52 @@ app.get('/sitemap.xml', async (req, res) => {
     
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
     xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
-    
-    // Homepage
     xml += `  <url>\n    <loc>${DOMAIN}/</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n`;
     
-    // Jobs
     for (const job of jobs) {
-      xml += `  <url>\n    <loc>${DOMAIN}/job/${job.slug}</loc>\n    <lastmod>${new Date(job.timestamp).toISOString().split('T')[0]}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
+      if (job.slug) {
+        xml += `  <url>\n    <loc>${DOMAIN}/job/${job.slug}</loc>\n    <lastmod>${new Date(job.timestamp).toISOString().split('T')[0]}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
+      }
     }
     
-    // Blog
     for (const post of posts) {
-      xml += `  <url>\n    <loc>${DOMAIN}/blog/${post.slug}</loc>\n    <lastmod>${new Date(post.timestamp).toISOString().split('T')[0]}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+      if (post.slug) {
+        xml += `  <url>\n    <loc>${DOMAIN}/blog/${post.slug}</loc>\n    <lastmod>${new Date(post.timestamp).toISOString().split('T')[0]}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+      }
     }
     
     xml += '</urlset>';
-    res.set('Content-Type', 'application/xml');
+    res.setHeader('Content-Type', 'application/xml');
     res.send(xml);
   } catch (error) {
-    console.error('Sitemap error:', error);
-    res.status(500).send('Sitemap temporarily unavailable. Please try again later.');
+    console.error('Sitemap error:', error.message);
+    res.setHeader('Content-Type', 'application/xml');
+    res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${DOMAIN}/</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>`);
   }
 });
-app.get('/robots.txt', (req, res) => { res.type('text/plain'); res.send(`User-agent: *\nAllow: /\n\nSitemap: ${DOMAIN}/sitemap.xml\n`); });
+
+app.get('/robots.txt', (req, res) => { 
+  res.type('text/plain'); 
+  res.send(`User-agent: *
+Allow: /
+Sitemap: ${DOMAIN}/sitemap.xml`);
+});
 
 app.post('/subscribe', async (req, res) => {
   try {
-    const { name, email } = req.body;
+    const { name, email, city } = req.body;
     if (!name || !email) return res.json({ ok: false, message: 'Name and email required.' });
     if (await getSubByEmail(email)) return res.json({ ok: true, message: `${name}, you are already subscribed!` });
-    await addSub({ name, email, subscribedAt: Date.now(), active: true });
-    res.json({ ok: true, message: `✅ Subscribed!` });
+    await addSub({ name, email, city: city || 'Any', subscribedAt: Date.now(), active: true });
+    res.json({ ok: true, message: `✅ Subscribed! Alerts will be sent to ${email}` });
   } catch (e) { res.json({ ok: false, message: 'Error.' }); }
 });
 
@@ -645,27 +666,44 @@ app.get('/signup', (req, res) => {
 
 app.post('/signup', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, city } = req.body;
     if (await getUserByEmail(email)) { 
       req.flash('error', 'Email already registered.'); 
       return res.redirect('/signup'); 
     }
     const hashed = await bcrypt.hash(password, 10);
-    const u = { id: uuidv4(), name, email, password: hashed, savedJobs: [], createdAt: Date.now() };
+    const u = { id: uuidv4(), name, email, password: hashed, city: city || '', savedJobs: [], createdAt: Date.now() };
     await addUser(u);
     req.session.user = { id: u.id, name: u.name, email: u.email };
+    req.flash('success', `Welcome, ${name}!`); 
     res.redirect('/profile');
   } catch (e) { res.redirect('/signup'); }
 });
 
 app.get('/profile', requireUser, async (req, res) => {
   const u = await getUserById(req.session.user.id);
+  const allJobs = await getJobs();
+  const saved = allJobs.filter(j => (u.savedJobs || []).includes(j.id));
   res.render('auth/profile', { 
     title: 'My Profile | Employee Table',
     metaDescription: `Manage your profile, saved jobs, and application settings.`,
     canonical: DOMAIN + '/profile',
-    fullUser: u 
+    fullUser: u,
+    savedJobs: saved
   });
+});
+
+app.post('/job/:slug/save', requireUser, async (req, res) => {
+  try {
+    const job = await getJobBySlug(req.params.slug);
+    if (!job) return res.json({ ok: false });
+    const u = await getUserById(req.session.user.id);
+    if (!u) return res.json({ ok: false });
+    const saved = u.savedJobs || [];
+    const already = saved.includes(job.id);
+    await updateUserSavedJobs(u.id, already ? saved.filter(id => id !== job.id) : [...saved, job.id]);
+    res.json({ ok: true, saved: !already });
+  } catch (e) { res.json({ ok: false }); }
 });
 
 app.get('/logout', (req, res) => { req.session.destroy(() => res.redirect('/')); });
@@ -691,49 +729,110 @@ app.post('/admin/login', (req, res) => {
 
 app.get('/admin/logout', (req, res) => { req.session.isAdmin = false; res.redirect('/admin/login'); });
 
+// FIXED ADMIN DASHBOARD ROUTE - PASSES 'views' VARIABLE
+
 app.get('/admin', requireAdmin, async (req, res) => {
-  const [jobs, posts, subs, users] = await Promise.all([getJobs(), getPosts(), getSubs(), getUsers()]);
-  res.render('admin/dashboard', { 
-    title: 'Admin Dashboard | Employee Table',
-    metaDescription: 'Administrator dashboard for managing jobs, blog posts, and users.',
-    canonical: DOMAIN + '/admin',
-    jobs, posts, subs, users, 
-    stats: { jobs: jobs.length, posts: posts.length, subs: subs.length, users: users.length } 
-  });
+  try {
+    const [jobs, posts, subs, users, views] = await Promise.all([
+      getJobs(), getPosts(), getSubs(), getUsers(), getAllViews()
+    ]);
+    
+    const totalClicks = jobs.reduce((sum, job) => sum + (job.clicks || 0), 0);
+    const totalViews = Object.values(views).reduce((sum, v) => sum + (parseInt(v) || 0), 0);
+    
+    res.render('admin/dashboard', {
+      title: 'Admin Dashboard | Employee Table',
+      metaDescription: 'Administrator dashboard for managing jobs, blog posts, and users.',
+      canonical: DOMAIN + '/admin',
+      jobs: jobs,
+      posts: posts,
+      subs: subs,
+      users: users,
+      views: views,
+      cities: CITIES,        // ← ADD THIS LINE
+      stats: { 
+        jobs: jobs.length, 
+        posts: posts.length, 
+        subs: subs.length, 
+        users: users.length,
+        clicks: totalClicks,
+        views: totalViews
+      }
+    });
+  } catch (error) {
+    console.error('Admin dashboard error:', error);
+    res.status(500).send('Admin error: ' + error.message);
+  }
 });
 
 app.post('/admin/job/add', requireAdmin, upload.single('companyLogoFile'), async (req, res) => {
   try {
-    const { jobRole, companyName, workLocation, jobType, experience, qualification, package: pkg, applyLink, description } = req.body;
-    await addJob({ jobRole, companyName, workLocation, jobType, experience, qualification, package: pkg, applyLink, description, clicks: 0, verified: true });
+    const { jobRole, companyName, workLocation, jobType, experience, qualification, package: pkg, applyLink, whatsappNumber, callNumber, skills, description, verified } = req.body;
+    let logo = req.body.companyLogo || ''; if (req.file) logo = '/img/uploads/' + req.file.filename; if (logo.startsWith('data:')) logo = '';
+    const all = await getJobs(); 
+    const slug = uniqueSlug(makeSlug(`${jobRole}-${companyName}`), all);
+    await addJob({ jobRole, companyName, companyLogo: logo, workLocation, jobType, experience, qualification, package: pkg || '', applyLink: applyLink || '', whatsappNumber: whatsappNumber || '', callNumber: callNumber || '', skills: skills || '', description: description || '', slug, timestamp: Date.now(), clicks: 0, verified: verified === 'on' });
     req.flash('success', 'Job added!'); 
     res.redirect('/admin');
   } catch (e) { 
+    console.error(e);
     req.flash('error', 'Error: ' + e.message); 
+    res.redirect('/admin'); 
+  }
+});
+
+app.post('/admin/job/edit/:id', requireAdmin, upload.single('companyLogoFile'), async (req, res) => {
+  try {
+    const { jobRole, companyName, workLocation, jobType, experience, qualification, package: pkg, applyLink, whatsappNumber, callNumber, skills, description, verified } = req.body;
+    let logo = req.body.companyLogo || ''; if (req.file) logo = '/img/uploads/' + req.file.filename; if (logo.startsWith('data:')) logo = '';
+    await updateJob(req.params.id, { jobRole, companyName, companyLogo: logo, workLocation, jobType, experience, qualification, package: pkg || '', applyLink: applyLink || '', whatsappNumber: whatsappNumber || '', callNumber: callNumber || '', skills: skills || '', description: description || '', verified: verified === 'on' });
+    req.flash('success', 'Job updated!'); 
+    res.redirect('/admin');
+  } catch (e) { 
+    console.error(e);
+    req.flash('error', 'Error updating.'); 
     res.redirect('/admin'); 
   }
 });
 
 app.post('/admin/job/delete/:id', requireAdmin, async (req, res) => {
-  await deleteJob(req.params.id);
-  res.redirect('/admin');
+  try { await deleteJob(req.params.id); req.flash('success', 'Job deleted.'); res.redirect('/admin'); } 
+  catch (e) { req.flash('error', 'Error deleting.'); res.redirect('/admin'); }
 });
 
 app.post('/admin/blog/add', requireAdmin, upload.single('coverImageFile'), async (req, res) => {
   try {
-    const { title, content, excerpt } = req.body;
-    await addPost({ title, content, excerpt, views: 0 });
+    const { title, excerpt, content, metaTitle, metaDescription, tags } = req.body;
+    let cover = req.body.coverImage || ''; if (req.file) cover = '/img/uploads/' + req.file.filename;
+    const all = await getPosts(); 
+    const slug = uniqueSlug(makeSlug(title), all);
+    await addPost({ title, slug, excerpt: excerpt || '', content: content || '', coverImage: cover, metaTitle: metaTitle || '', metaDescription: metaDescription || '', tags: tags || '', timestamp: Date.now(), views: 0 });
     req.flash('success', 'Post published!'); 
     res.redirect('/admin');
   } catch (e) { 
+    console.error(e);
     req.flash('error', 'Error: ' + e.message); 
     res.redirect('/admin'); 
   }
 });
 
+app.post('/admin/blog/edit/:id', requireAdmin, upload.single('coverImageFile'), async (req, res) => {
+  try {
+    const { title, excerpt, content, metaTitle, metaDescription, tags } = req.body;
+    let cover = req.body.coverImage || ''; if (req.file) cover = '/img/uploads/' + req.file.filename;
+    await updatePost(req.params.id, { title, excerpt: excerpt || '', content: content || '', coverImage: cover, metaTitle: metaTitle || '', metaDescription: metaDescription || '', tags: tags || '' });
+    req.flash('success', 'Post updated!'); 
+    res.redirect('/admin');
+  } catch (e) { 
+    console.error(e);
+    req.flash('error', 'Error updating.'); 
+    res.redirect('/admin'); 
+  }
+});
+
 app.post('/admin/blog/delete/:id', requireAdmin, async (req, res) => {
-  await deletePost(req.params.id);
-  res.redirect('/admin');
+  try { await deletePost(req.params.id); req.flash('success', 'Deleted.'); res.redirect('/admin'); } 
+  catch (e) { req.flash('error', 'Error.'); res.redirect('/admin'); }
 });
 
 app.get('/admin/job/:id/json', requireAdmin, async (req, res) => {

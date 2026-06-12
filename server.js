@@ -115,6 +115,17 @@ function parseSalaryToNumber(pkg) {
 }
 
 function makeSlug(t) { return slugify(t || 'untitled', { lower: true, strict: true }); }
+
+// ✅ ADDED: uniqueSlug function to ensure unique URLs
+function uniqueSlug(base, list) {
+  let s = base;
+  let i = 1;
+  while (list.some(x => x.slug === s)) {
+    s = base + '-' + (i++);
+  }
+  return s;
+}
+
 function timeAgo(ts) {
   if (!ts) return 'Recently';
   const d = Math.floor((Date.now() - ts) / 86400000);
@@ -729,16 +740,23 @@ app.post('/admin/login', (req, res) => {
 
 app.get('/admin/logout', (req, res) => { req.session.isAdmin = false; res.redirect('/admin/login'); });
 
-// FIXED ADMIN DASHBOARD ROUTE - PASSES 'views' VARIABLE
-
+// ADMIN DASHBOARD ROUTE (FULLY FIXED)
 app.get('/admin', requireAdmin, async (req, res) => {
   try {
+    console.log('🟢 Loading admin dashboard...');
+    
     const [jobs, posts, subs, users, views] = await Promise.all([
-      getJobs(), getPosts(), getSubs(), getUsers(), getAllViews()
+      getJobs(), 
+      getPosts(), 
+      getSubs(), 
+      getUsers(),
+      getAllViews()
     ]);
     
     const totalClicks = jobs.reduce((sum, job) => sum + (job.clicks || 0), 0);
     const totalViews = Object.values(views).reduce((sum, v) => sum + (parseInt(v) || 0), 0);
+    
+    console.log(`📊 Stats: ${jobs.length} jobs, ${posts.length} posts, ${subs.length} subs`);
     
     res.render('admin/dashboard', {
       title: 'Admin Dashboard | Employee Table',
@@ -749,7 +767,7 @@ app.get('/admin', requireAdmin, async (req, res) => {
       subs: subs,
       users: users,
       views: views,
-      cities: CITIES,        // ← ADD THIS LINE
+      cities: CITIES,  // ← CRITICAL: Required for the city dropdown
       stats: { 
         jobs: jobs.length, 
         posts: posts.length, 
@@ -760,8 +778,13 @@ app.get('/admin', requireAdmin, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Admin dashboard error:', error);
-    res.status(500).send('Admin error: ' + error.message);
+    console.error('❌ Admin dashboard error:', error);
+    res.status(500).send(`
+      <h1>Admin Dashboard Error</h1>
+      <p>${error.message}</p>
+      <pre>${error.stack}</pre>
+      <a href="/admin/logout">← Logout</a>
+    `);
   }
 });
 

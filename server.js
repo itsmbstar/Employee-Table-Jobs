@@ -521,23 +521,47 @@ app.get('/', async (req, res) => {
 
 app.get('/job/:slug', async (req, res) => {
   try {
-    const job = await getJobBySlug(req.params.slug);
+    const slug = req.params.slug;
+    console.log(`🔍 Looking for job: ${slug}`);
+    
+    const job = await getJobBySlug(slug);
+    
     if (!job) {
+      console.log(`❌ Job not found: ${slug}`);
       return res.status(404).render('404', { 
         title: '404 - Job Not Found | Employee Table',
         metaDescription: 'The job you are looking for does not exist.',
         canonical: DOMAIN + '/404'
       });
     }
-    const views = await incrementView('job_' + job.id);
-    const allJobs = await getJobs();
-    const related = allJobs.filter(j => j.id !== job.id && j.workLocation === job.workLocation).slice(0, 3);
+    
+    console.log(`✅ Job found: ${job.jobRole} at ${job.companyName}`);
+    
+    // Get view count
+    let views = 0;
+    try {
+      views = await incrementView('job_' + job.id);
+    } catch (err) {
+      console.error('View count error:', err.message);
+      views = 0;
+    }
+    
+    // Get related jobs
+    let allJobs = [];
+    let related = [];
+    try {
+      allJobs = await getJobs();
+      related = allJobs.filter(j => j.id !== job.id && j.workLocation === job.workLocation).slice(0, 3);
+    } catch (err) {
+      console.error('Related jobs error:', err.message);
+      related = [];
+    }
+    
     const jobDescription = buildJobDescription(job);
     
     const posted = new Date(job.timestamp).toISOString();
     const validTil = new Date(job.timestamp + 30 * 86400000).toISOString();
     const salaryNum = parseSalaryToNumber(job.package);
-    const salaryValue = salaryNum ? salaryNum : (job.package ? parseFloat(job.package.replace(/[^0-9.-]/g, '')) * 100000 : null);
     
     const jobSchema = JSON.stringify({
       '@context': 'https://schema.org',
@@ -546,42 +570,45 @@ app.get('/job/:slug', async (req, res) => {
       description: jobDescription,
       datePosted: posted,
       validThrough: validTil,
-      hiringOrganization: { '@type': 'Organization', name: job.companyName, sameAs: job.companyLogo ? [job.companyLogo] : undefined },
+      hiringOrganization: { '@type': 'Organization', name: job.companyName },
       jobLocation: { '@type': 'Place', address: { '@type': 'PostalAddress', addressLocality: job.workLocation, addressCountry: 'IN' } },
       employmentType: { 'Full-Time': 'FULL_TIME', 'Part-Time': 'PART_TIME', 'Internship': 'INTERN', 'Contract': 'CONTRACTOR', 'Remote': 'FULL_TIME' }[job.jobType] || 'FULL_TIME',
-      ...(salaryValue && { baseSalary: { '@type': 'MonetaryAmount', currency: 'INR', value: { '@type': 'QuantitativeValue', value: salaryValue, unitText: 'YEAR' } } }),
-      experienceRequirements: job.experience,
-      educationRequirements: job.qualification,
-      url: `${DOMAIN}/job/${job.slug}`,
-      identifier: job.id,
-      employmentUnit: { '@type': 'Organization', name: job.companyName }
+      ...(salaryNum && { baseSalary: { '@type': 'MonetaryAmount', currency: 'INR', value: { '@type': 'QuantitativeValue', value: salaryNum, unitText: 'YEAR' } } }),
+      url: `${DOMAIN}/job/${job.slug}`
     });
     
     const breadcrumbSchema = JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
-      'itemListElement': [
-        { '@type': 'ListItem', 'position': 1, 'name': 'Home', 'item': DOMAIN + '/' },
-        { '@type': 'ListItem', 'position': 2, 'name': 'Jobs', 'item': DOMAIN + '/' },
-        { '@type': 'ListItem', 'position': 3, 'name': job.jobRole, 'item': `${DOMAIN}/job/${job.slug}` }
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: DOMAIN + '/' },
+        { '@type': 'ListItem', position: 2, name: 'Jobs', item: DOMAIN + '/' },
+        { '@type': 'ListItem', position: 3, name: job.jobRole, item: `${DOMAIN}/job/${job.slug}` }
       ]
     });
     
     res.render('job-detail', { 
       title: buildJobTitle(job),
-      metaDescription: `Apply for ${job.jobRole} at ${job.companyName} in ${job.workLocation}. ${job.experience} experience. Free verified job. 100% scam-free.`,
+      metaDescription: `Apply for ${job.jobRole} at ${job.companyName} in ${job.workLocation}. Free verified job.`,
       canonical: `${DOMAIN}/job/${job.slug}`,
       ogType: 'article',
-      job, 
-      related, 
-      views, 
-      jobDescription,
-      jobSchema,
-      breadcrumbSchema
+      job: job,
+      related: related,
+      views: views,
+      jobDescription: jobDescription,
+      jobSchema: jobSchema,
+      breadcrumbSchema: breadcrumbSchema
     });
-  } catch (e) { 
-    console.error(e); 
-    res.status(500).send('Error loading job.'); 
+    
+  } catch (error) {
+    console.error(`❌ 500 Error on job ${req.params.slug}:`, error.message);
+    console.error(error.stack);
+    res.status(500).send(`
+      <h1>Error Loading Job</h1>
+      <p>Something went wrong. Please try again later.</p>
+      <p><strong>Error:</strong> ${error.message}</p>
+      <a href="/">← Back to Home</a>
+    `);
   }
 });
 

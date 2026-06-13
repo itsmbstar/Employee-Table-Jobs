@@ -814,15 +814,6 @@ app.get('/sitemap.xml', async (req, res) => {
 </urlset>`);
   }
 });
-
-app.get('/robots.txt', (req, res) => { 
-  res.type('text/plain'); 
-  res.send(`User-agent: *
-Allow: /
-Sitemap: ${DOMAIN}/sitemap.xml
-Host: ${DOMAIN}`);
-});
-
 app.post('/subscribe', async (req, res) => {
   try {
     const { name, email, city } = req.body;

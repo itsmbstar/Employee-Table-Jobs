@@ -717,6 +717,50 @@ app.get('/blog/:slug', async (req, res) => {
       keywords: post.tags || 'verified jobs, fresher jobs India',
       mainEntityOfPage: `${DOMAIN}/blog/${post.slug}`
     });
+
+    // TEMPORARY DEBUG ROUTE - Remove after fixing
+app.get('/debug-job/:slug', async (req, res) => {
+  try {
+    const slug = req.params.slug;
+    console.log(`🔍 Debugging job: ${slug}`);
+    
+    // Try to get job
+    const job = await getJobBySlug(slug);
+    
+    if (!job) {
+      return res.json({ 
+        success: false, 
+        error: 'Job not found',
+        slug: slug 
+      });
+    }
+    
+    // Return job data as JSON
+    res.json({
+      success: true,
+      job: {
+        id: job.id,
+        slug: job.slug,
+        jobRole: job.jobRole,
+        companyName: job.companyName,
+        workLocation: job.workLocation,
+        hasDescription: !!job.description,
+        descriptionLength: job.description ? job.description.length : 0,
+        hasApplyLink: !!job.applyLink,
+        timestamp: job.timestamp,
+        allKeys: Object.keys(job)
+      }
+    });
+    
+  } catch (error) {
+    console.error('Debug error:', error);
+    res.json({ 
+      success: false, 
+      error: error.message,
+      stack: error.stack 
+    });
+  }
+});
     
     const breadcrumbSchema = JSON.stringify({
       '@context': 'https://schema.org',

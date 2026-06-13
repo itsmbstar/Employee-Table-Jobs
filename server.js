@@ -718,76 +718,95 @@ app.get('/blog/:slug', async (req, res) => {
   }
 });
 
-// ── SITEMAP.XML (FIXED - encodes special characters) ─────────────────────────
+// ── SIMPLE SITEMAP.XML (CRASH-PROOF) ────────────────────────────────────────
 app.get('/sitemap.xml', async (req, res) => {
+  // Helper function to escape XML special characters
+  function escapeXml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+  
   try {
-    const [jobs, posts] = await Promise.all([getJobs(), getPosts()]);
-    const now = new Date().toISOString().split('T')[0];
+    console.log('🟢 Generating sitemap...');
     
-    // Helper function to escape XML special characters
-    function escapeXml(str) {
-      if (!str) return '';
-      return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
+    // Fetch jobs and posts safely (with fallbacks)
+    let jobs = [];
+    let posts = [];
+    
+    try {
+      jobs = await getJobs();
+      console.log(`✅ Loaded ${jobs.length} jobs`);
+    } catch (err) {
+      console.error('Error loading jobs for sitemap:', err.message);
     }
     
+    try {
+      posts = await getPosts();
+      console.log(`✅ Loaded ${posts.length} posts`);
+    } catch (err) {
+      console.error('Error loading posts for sitemap:', err.message);
+    }
+    
+    const now = new Date().toISOString().split('T')[0];
+    
+    // Start building XML
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n';
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
     
     // Homepage
-    xml += `  <url>\n    <loc>${DOMAIN}/</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n`;
+    xml += `  <url>\n    <loc>https://www.employeetable.in/</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n`;
     
     // Blog listing
-    xml += `  <url>\n    <loc>${DOMAIN}/blog</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.9</priority>\n  </url>\n`;
+    xml += `  <url>\n    <loc>https://www.employeetable.in/blog</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.9</priority>\n  </url>\n`;
     
-    // Jobs - with escaped company names for image titles
+    // Jobs (with safe slug and date handling)
     for (const job of jobs) {
-      if (job.slug) {
-        xml += `  <url>\n    <loc>${DOMAIN}/job/${job.slug}</loc>\n    <lastmod>${new Date(job.timestamp).toISOString().split('T')[0]}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n`;
-        if (job.companyLogo && job.companyLogo.startsWith('http')) {
-          const escapedTitle = escapeXml(`${job.companyName} logo`);
-          xml += `    <image:image>\n      <image:loc>${escapeXml(job.companyLogo)}</image:loc>\n      <image:title>${escapedTitle}</image:title>\n    </image:image>\n`;
-        }
-        xml += `  </url>\n`;
+      if (job && job.slug) {
+        const lastmod = job.timestamp ? new Date(job.timestamp).toISOString().split('T')[0] : now;
+        xml += `  <url>\n    <loc>https://www.employeetable.in/job/${escapeXml(job.slug)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
       }
     }
     
-    // Blog posts
+    // Blog posts (with safe slug handling)
     for (const post of posts) {
-      if (post.slug) {
-        xml += `  <url>\n    <loc>${DOMAIN}/blog/${post.slug}</loc>\n    <lastmod>${new Date(post.timestamp).toISOString().split('T')[0]}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n`;
-        if (post.coverImage && post.coverImage.startsWith('http')) {
-          const escapedTitle = escapeXml(post.title);
-          xml += `    <image:image>\n      <image:loc>${escapeXml(post.coverImage)}</image:loc>\n      <image:title>${escapedTitle}</image:title>\n    </image:image>\n`;
-        }
-        xml += `  </url>\n`;
+      if (post && post.slug) {
+        const lastmod = post.timestamp ? new Date(post.timestamp).toISOString().split('T')[0] : now;
+        xml += `  <url>\n    <loc>https://www.employeetable.in/blog/${escapeXml(post.slug)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
       }
     }
     
     // City pages
-    for (const city of CITIES) {
-      xml += `  <url>\n    <loc>${DOMAIN}/jobs-in-${city.slug}</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.9</priority>\n  </url>\n`;
+    const cities = ['mumbai', 'bangalore', 'delhi', 'hyderabad', 'pune', 'noida', 'chennai', 'remote'];
+    for (const city of cities) {
+      xml += `  <url>\n    <loc>https://www.employeetable.in/jobs-in-${city}</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.9</priority>\n  </url>\n`;
     }
     
     // E-E-A-T pages
-    xml += `  <url>\n    <loc>${DOMAIN}/privacy</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>yearly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
-    xml += `  <url>\n    <loc>${DOMAIN}/terms</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>yearly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
-    xml += `  <url>\n    <loc>${DOMAIN}/contact</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>yearly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
+    xml += `  <url>\n    <loc>https://www.employeetable.in/privacy</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>yearly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
+    xml += `  <url>\n    <loc>https://www.employeetable.in/terms</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>yearly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
+    xml += `  <url>\n    <loc>https://www.employeetable.in/contact</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>yearly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
     
     xml += '</urlset>';
+    
     res.setHeader('Content-Type', 'application/xml');
+    res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
     res.send(xml);
+    
+    console.log('✅ Sitemap generated successfully');
+    
   } catch (error) {
-    console.error('Sitemap error:', error.message);
+    console.error('❌ Sitemap generation error:', error.message);
+    // Always return a valid, minimal sitemap instead of crashing
     res.setHeader('Content-Type', 'application/xml');
     res.send(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>${DOMAIN}/</loc>
+    <loc>https://www.employeetable.in/</loc>
     <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>

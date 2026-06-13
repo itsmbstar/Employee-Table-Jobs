@@ -1,0 +1,27 @@
+<%- include('partials/header') %>
+<section class="container section">
+  <h1>Privacy Policy</h1>
+  <p><strong>Last updated:</strong> <%= new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }) %></p>
+  
+  <h2>Information We Collect</h2>
+  <p>Employee Table collects information you provide directly to us, such as your name, email address, and location when you subscribe to job alerts or create an account.</p>
+  
+  <h2>How We Use Your Information</h2>
+  <p>We use your information to:</p>
+  <ul>
+    <li>Send you verified job alerts via email</li>
+    <li>Save jobs to your profile for later application</li>
+    <li>Improve our job matching algorithm</li>
+    <li>Respond to your inquiries and support requests</li>
+  </ul>
+  
+  <h2>Data Security</h2>
+  <p>We implement industry-standard security measures to protect your personal information. We never share your data with third parties without your explicit consent.</p>
+  
+  <h2>Your Rights</h2>
+  <p>You can unsubscribe from job alerts at any time by clicking the "Unsubscribe" link in any email. You can also request deletion of your account and personal data by contacting us.</p>
+  
+  <h2>Contact Us</h2>
+  <p>If you have questions about this Privacy Policy, please contact us at <a href="/contact">our contact page</a>.</p>
+</section>
+<%- include('partials/footer') %>

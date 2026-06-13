@@ -1,11 +1,43 @@
 <%- include('partials/header') %>
+<!-- Organization Schema -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Employee Table",
+  "url": "https://www.employeetable.in",
+  "logo": "https://www.employeetable.in/img/logo.png",
+  "description": "India's leading verified job portal with 5000+ free job listings for freshers and professionals.",
+  "foundingDate": "2021",
+  "founders": [{"@type": "Person", "name": "Employee Table Team"}],
+  "address": {"@type": "Country", "name": "India"}
+}
+</script>
+
+<!-- Website Schema -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Employee Table",
+  "url": "https://www.employeetable.in",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://www.employeetable.in/?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
 <section class="hero">
   <div class="container hero-inner">
     <h1 class="hero-title">Find Verified Jobs in India — Free for Freshers &amp; Professionals</h1>
     <p class="hero-sub">Every listing manually verified. No scams. No fees. Updated daily since 2021. Jobs in Mumbai, Bangalore, Delhi, Pune, Hyderabad &amp; more.</p>
     <div class="hero-badges">
-      <span>✅ 100% Free</span><span>✅ Manually Verified</span>
-      <span>✅ Fresher Friendly</span><span>✅ Daily Updates</span><span>✅ Remote &amp; On-site</span>
+      <span>✅ 100% Free</span>
+      <span>✅ Manually Verified</span>
+      <span>✅ Fresher Friendly</span>
+      <span>✅ Daily Updates</span>
+      <span>✅ Remote &amp; On-site</span>
     </div>
     <a href="#jobs" class="btn btn-white">Browse Jobs Now</a>
   </div>

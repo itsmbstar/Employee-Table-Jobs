@@ -1,0 +1,64 @@
+<%- include('partials/header') %>
+<section class="container section">
+  <h1>Contact Employee Table</h1>
+  <p>We respond to all inquiries within 24 hours (Monday–Friday).</p>
+  
+  <div class="contact-grid">
+    <div class="contact-info">
+      <h2>📧 Email</h2>
+      <p><a href="mailto:emptable1@gmail.com">emptable1@gmail.com</a></p>
+      
+      <h2>🐦 Social Media</h2>
+      <p><a href="https://twitter.com/employeetable" target="_blank" rel="noopener noreferrer">Twitter / X</a></p>
+      <p><a href="https://linkedin.com/company/employee-table" target="_blank" rel="noopener noreferrer">LinkedIn</a></p>
+      
+      <h2>📋 For Employers</h2>
+      <p>To post a verified job on Employee Table, please email us with:</p>
+      <ul>
+        <li>Job title and description</li>
+        <li>Company name and logo</li>
+        <li>Location and job type</li>
+        <li>Application link or HR contact</li>
+      </ul>
+      <p>Job posting is <strong>completely free</strong> for verified employers.</p>
+    </div>
+    
+    <div class="contact-form">
+      <h2>Send Us a Message</h2>
+      <form method="POST" action="/send-message" id="contactForm">
+        <input type="text" name="name" placeholder="Your Name" required class="form-input">
+        <input type="email" name="email" placeholder="Your Email" required class="form-input">
+        <textarea name="message" rows="5" placeholder="Your Message..." required class="form-input"></textarea>
+        <button type="submit" class="btn btn-primary">Send Message</button>
+      </form>
+      <div id="contactMsg" class="hidden"></div>
+    </div>
+  </div>
+</section>
+
+<script>
+document.getElementById('contactForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+  try {
+    const res = await fetch('/send-message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(new FormData(e.target))
+    });
+    const data = await res.json();
+    const msgDiv = document.getElementById('contactMsg');
+    msgDiv.textContent = data.message;
+    msgDiv.classList.remove('hidden');
+    if (data.ok) e.target.reset();
+    btn.disabled = false;
+    btn.textContent = 'Send Message';
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Send Message';
+  }
+});
+</script>
+<%- include('partials/footer') %>

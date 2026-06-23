@@ -37,8 +37,9 @@ var extraSchema = '<script type="application/ld+json">' + jobSchema + '<\/script
 
         <div class="job-description">
           <h2>Job Description</h2>
-          <div class="job-description-body"><%= job.description || jobDescription %></div>
-        </div>
+<div class="job-description-body">
+  <%- job.description || jobDescription %>
+</div>        </div>
 
         <div class="job-detail-actions">
           <% if(job.applyLink && job.applyLink !== ''){ %>

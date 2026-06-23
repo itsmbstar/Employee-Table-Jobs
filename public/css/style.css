@@ -685,4 +685,36 @@ img {
     height: 50px;
     justify-content: center;
   }
+  /* Job Description Styling */
+.job-description-body {
+  font-size: 16px;
+  line-height: 1.8;
+  color: #1a1a1a;
+}
+
+.job-description-body p {
+  margin-bottom: 1rem;
+}
+
+.job-description-body ul,
+.job-description-body ol {
+  margin: 0.5rem 0 1rem 1.5rem;
+  padding-left: 0.5rem;
+}
+
+.job-description-body ul li,
+.job-description-body ol li {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+.job-description-body strong {
+  color: #0A2540;
+}
+
+.job-description-body h3 {
+  margin: 1.5rem 0 0.5rem 0;
+  font-size: 1.1rem;
+  color: #0A2540;
+}
 }

@@ -23,7 +23,7 @@ let cachedJobs = null;
 let cachedPosts = null;
 let cacheTimeJobs = null;
 let cacheTimePosts = null;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
 function clearCache() {
   cachedJobs = null;
@@ -361,6 +361,11 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+// Add caching headers
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  next();
+});
 app.use(session({ secret: SESSION_SECRET, resave: false, saveUninitialized: false, cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 } }));
 app.use(flash());
 

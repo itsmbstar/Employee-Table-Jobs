@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Google",
+    "url": "https://careers.google.com/jobs"
+  },
+  {
+    "name": "Amazon", 
+    "url": "https://www.amazon.jobs/en/search"
+  },
+  {
+    "name": "Microsoft",
+    "url": "https://careers.microsoft.com/us/en/search-results"
+  },
+  {
+    "name": "Wipro",
+    "url": "https://careers.wipro.com/careers-home"
+  },
+  {
+    "name": "TaskUs",
+    "url": "https://jobs.taskus.com/india"
+  },
+  {
+    "name": "Salesforce",
+    "url": "https://www.salesforce.com/company/careers/jobs/"
+  },
+  {
+    "name": "Zoho",
+    "url": "https://www.zoho.com/careers"
+  },
+  {
+    "name": "Infosys",
+    "url": "https://careers.infosys.com/jobsearch"
+  },
+  {
+    "name": "Accenture",
+    "url": "https://www.accenture.com/in-en/careers/job-search"
+  },
+  {
+    "name": "Adobe",
+    "url": "https://careers.adobe.com/us/en/search-results"
+  }
+]

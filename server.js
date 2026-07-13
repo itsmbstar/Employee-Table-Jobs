@@ -616,6 +616,70 @@ app.get('/jobs-in-:cityslug', async (req, res) => {
   }
 });
 
+// ── WALK-IN DRIVES: Public Routes ───────────────────────────────────────────
+app.get('/walkins', async (req, res) => {
+  try {
+    const { city } = req.query;
+    const all = await getWalkins();
+    let active = all.filter(w => !w.expired);
+    const expiredWalkins = all.filter(w => w.expired).slice(0, 6);
+    if (city) active = active.filter(w => (w.city || '').toLowerCase() === city.toLowerCase());
+
+    res.render('walkins', {
+      title: city ? `Walk-In Interviews in ${city} Today | Employee Table` : 'Verified Walk-In Interviews Today | Employee Table',
+      metaDescription: 'Daily verified walk-in interview drives across India — company, venue, HR contact, and documents required. 100% verified, no fake posts.',
+      canonical: DOMAIN + '/walkins' + (city ? '?city=' + encodeURIComponent(city) : ''),
+      walkins: active,
+      expiredWalkins,
+      selectedCity: city || '',
+      cities: CITIES
+    });
+  } catch (e) { console.error(e); res.status(500).send('Server error.'); }
+});
+
+app.get('/walkins/:slug', async (req, res) => {
+  try {
+    const walkin = await getWalkinBySlug(req.params.slug);
+    if (!walkin) {
+      return res.status(404).render('404', {
+        title: '404 - Walk-In Not Found | Employee Table',
+        metaDescription: 'This walk-in drive does not exist.',
+        canonical: DOMAIN + '/404'
+      });
+    }
+    const dateEnd = walkin.interviewDateEnd || walkin.timestamp;
+    const isExpired = Date.now() > dateEnd;
+    const allWalkins = await getWalkins();
+    const related = allWalkins.filter(w => w.id !== walkin.id && !w.expired && w.city === walkin.city).slice(0, 3);
+
+    const jobSchema = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'JobPosting',
+      title: `${walkin.roleTitle} - Walk-In Interview`,
+      description: `Walk-in interview for ${walkin.roleTitle} at ${walkin.companyName}, ${walkin.city}. Venue: ${walkin.venueAddress}. Eligibility: ${walkin.eligibility}. Documents required: ${walkin.documentsRequired}.`,
+      datePosted: new Date(walkin.timestamp).toISOString(),
+      validThrough: new Date(dateEnd).toISOString(),
+      hiringOrganization: { '@type': 'Organization', name: walkin.companyName },
+      jobLocation: { '@type': 'Place', address: { '@type': 'PostalAddress', streetAddress: walkin.venueAddress, addressLocality: walkin.city, addressCountry: 'IN' } },
+      employmentType: 'FULL_TIME',
+      url: `${DOMAIN}/walkins/${walkin.slug}`
+    });
+
+    res.render('walkin-detail', {
+      title: `${walkin.companyName} Walk-In Interview – ${walkin.roleTitle} | ${walkin.city} | Employee Table`,
+      metaDescription: `Walk-in interview at ${walkin.companyName} for ${walkin.roleTitle} in ${walkin.city}. Verified venue, HR contact & documents required.`,
+      canonical: `${DOMAIN}/walkins/${walkin.slug}`,
+      extraSchema: isExpired ? '' : `<script type="application/ld+json">${jobSchema}</script>`,
+      walkin, related, isExpired
+    });
+  } catch (e) { console.error(e); res.status(500).send('Error loading walk-in.'); }
+});
+
+app.post('/walkins/:slug/click', async (req, res) => {
+  try { const w = await getWalkinBySlug(req.params.slug); if (w) await incrementWalkinClicks(w.id); res.json({ ok: true }); }
+  catch (e) { res.json({ ok: false }); }
+});
+
 app.get('/blog', async (req, res) => {
   try { 
     const posts = await getPosts(); 
@@ -696,7 +760,15 @@ app.get('/sitemap.xml', async (req, res) => {
         xml += `  <url>\n    <loc>${DOMAIN}/job/${job.slug}</loc>\n    <lastmod>${new Date(job.timestamp).toISOString().split('T')[0]}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
       }
     }
-    
+  
+    const walkins = await getWalkins();
+    for (const w of walkins) {
+      if (w.slug && !w.expired) {
+        xml += `  <url>\n    <loc>${DOMAIN}/walkins/${w.slug}</loc>\n    <lastmod>${new Date(w.timestamp).toISOString().split('T')[0]}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.85</priority>\n  </url>\n`;
+      }
+    }
+    xml += `  <url>\n    <loc>${DOMAIN}/walkins</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.95</priority>\n  </url>\n`;
+
     for (const post of posts) {
       if (post.slug) {
         xml += `  <url>\n    <loc>${DOMAIN}/blog/${post.slug}</loc>\n    <lastmod>${new Date(post.timestamp).toISOString().split('T')[0]}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
@@ -857,30 +929,28 @@ app.get('/admin/logout', (req, res) => { req.session.isAdmin = false; res.redire
 
 app.get('/admin', requireAdmin, async (req, res) => {
   try {
-    const [jobs, posts, subs, users, views] = await Promise.all([
-      getJobs(), getPosts(), getSubs(), getUsers(), getAllViews()
+    const [jobs, posts, subs, users, views, walkins] = await Promise.all([
+      getJobs(), getPosts(), getSubs(), getUsers(), getAllViews(), getWalkins()
     ]);
-    
+
     const totalClicks = jobs.reduce((sum, job) => sum + (job.clicks || 0), 0);
     const totalViews = Object.values(views).reduce((sum, v) => sum + (parseInt(v) || 0), 0);
-    
+
     res.render('admin/dashboard', {
       title: 'Admin Dashboard | Employee Table',
       metaDescription: 'Administrator dashboard.',
       canonical: DOMAIN + '/admin',
-      jobs: jobs,
-      posts: posts,
-      subs: subs,
-      users: users,
-      views: views,
+      jobs, posts, subs, users, views, walkins,
       cities: CITIES,
-      stats: { 
-        jobs: jobs.length, 
-        posts: posts.length, 
-        subs: subs.length, 
+      stats: {
+        jobs: jobs.length,
+        posts: posts.length,
+        subs: subs.length,
         users: users.length,
         clicks: totalClicks,
-        views: totalViews
+        views: totalViews,
+        walkins: walkins.length,
+        activeWalkins: walkins.filter(w => !w.expired).length
       }
     });
   } catch (error) {
@@ -923,7 +993,50 @@ app.post('/admin/job/delete/:id', requireAdmin, async (req, res) => {
   try { await deleteJob(req.params.id); req.flash('success', 'Job deleted.'); res.redirect('/admin'); } 
   catch (e) { req.flash('error', 'Error deleting.'); res.redirect('/admin'); }
 });
+// ── WALK-IN DRIVES: Admin Routes ────────────────────────────────────────────
+app.post('/admin/walkin/add', requireAdmin, async (req, res) => {
+  try {
+    const { companyName, roleTitle, city, area, venueAddress, interviewDateStart, interviewDateEnd, interviewTime, hrContactEmail, hrContactPhone, documentsRequired, eligibility, package: pkg, verified } = req.body;
+    const all = await getWalkins();
+    const slug = uniqueSlug(makeSlug(`${companyName}-${city}`), all);
+    await addWalkin({
+      companyName, roleTitle, city, area: area || '', venueAddress,
+      interviewDateStart: new Date(interviewDateStart).getTime(),
+      interviewDateEnd: new Date(interviewDateEnd).getTime(),
+      interviewTime: interviewTime || '', hrContactEmail: hrContactEmail || '', hrContactPhone: hrContactPhone || '',
+      documentsRequired: documentsRequired || '', eligibility: eligibility || '', package: pkg || '',
+      slug, timestamp: Date.now(), clicks: 0, verified: verified === 'on'
+    });
+    req.flash('success', 'Walk-in drive added!');
+    res.redirect('/admin');
+  } catch (e) { console.error(e); req.flash('error', 'Error: ' + e.message); res.redirect('/admin'); }
+});
 
+app.post('/admin/walkin/edit/:id', requireAdmin, async (req, res) => {
+  try {
+    const { companyName, roleTitle, city, area, venueAddress, interviewDateStart, interviewDateEnd, interviewTime, hrContactEmail, hrContactPhone, documentsRequired, eligibility, package: pkg, verified } = req.body;
+    await updateWalkin(req.params.id, {
+      companyName, roleTitle, city, area: area || '', venueAddress,
+      interviewDateStart: new Date(interviewDateStart).getTime(),
+      interviewDateEnd: new Date(interviewDateEnd).getTime(),
+      interviewTime: interviewTime || '', hrContactEmail: hrContactEmail || '', hrContactPhone: hrContactPhone || '',
+      documentsRequired: documentsRequired || '', eligibility: eligibility || '', package: pkg || '',
+      verified: verified === 'on'
+    });
+    req.flash('success', 'Walk-in updated!');
+    res.redirect('/admin');
+  } catch (e) { console.error(e); req.flash('error', 'Error updating.'); res.redirect('/admin'); }
+});
+
+app.post('/admin/walkin/delete/:id', requireAdmin, async (req, res) => {
+  try { await deleteWalkin(req.params.id); req.flash('success', 'Walk-in deleted.'); res.redirect('/admin'); }
+  catch (e) { req.flash('error', 'Error deleting.'); res.redirect('/admin'); }
+});
+
+app.get('/admin/walkin/:id/json', requireAdmin, async (req, res) => {
+  try { const all = await getWalkins(); res.json(all.find(w => w.id === req.params.id) || {}); }
+  catch (e) { res.json({}); }
+});
 app.post('/admin/blog/add', requireAdmin, upload.single('coverImageFile'), async (req, res) => {
   try {
     const { title, excerpt, content, metaTitle, metaDescription, tags } = req.body;
@@ -943,8 +1056,30 @@ app.post('/admin/blog/add', requireAdmin, upload.single('coverImageFile'), async
 app.post('/admin/blog/edit/:id', requireAdmin, upload.single('coverImageFile'), async (req, res) => {
   try {
     const { title, excerpt, content, metaTitle, metaDescription, tags } = req.body;
-    let cover = req.body.coverImage || ''; if (req.file) cover = '/img/uploads/' + req.file.filename;
-    await updatePost(req.params.id, { title, excerpt: excerpt || '', content: content || '', coverImage: cover, metaTitle: metaTitle || '', metaDescription: metaDescription || '', tags: tags || '' });
+    
+    // Get the existing post first
+    const existingPost = await getPostBySlug(req.params.id);
+    if (!existingPost) {
+      req.flash('error', 'Post not found.');
+      return res.redirect('/admin');
+    }
+    
+    // Only update coverImage if a new file was uploaded
+    let coverImage = existingPost.coverImage || '';  // Keep existing
+    if (req.file) {
+      coverImage = '/img/uploads/' + req.file.filename;  // Use new file
+    }
+    
+    await updatePost(req.params.id, { 
+      title, 
+      excerpt: excerpt || '', 
+      content: content || '', 
+      coverImage: coverImage,  // ← ONLY UPDATES IF NEW FILE
+      metaTitle: metaTitle || '', 
+      metaDescription: metaDescription || '', 
+      tags: tags || '' 
+    });
+    
     req.flash('success', 'Post updated!'); 
     res.redirect('/admin');
   } catch (e) { 
@@ -958,6 +1093,65 @@ app.post('/admin/blog/delete/:id', requireAdmin, async (req, res) => {
   try { await deletePost(req.params.id); req.flash('success', 'Deleted.'); res.redirect('/admin'); } 
   catch (e) { req.flash('error', 'Error.'); res.redirect('/admin'); }
 });
+
+// ── WALK-IN DRIVES: Firestore Operations ────────────────────────────────────
+let cachedWalkins = null;
+let cacheTimeWalkins = null;
+
+async function getWalkins() {
+  if (cachedWalkins && cacheTimeWalkins && (Date.now() - cacheTimeWalkins < CACHE_DURATION)) {
+    console.log('📦 Returning cached walkins');
+    return cachedWalkins;
+  }
+  console.log('🔄 Fetching fresh walkins from Firestore...');
+  const snap = await db.collection('walkins').orderBy('timestamp', 'desc').get();
+  cachedWalkins = snap.docs.map(doc => {
+    const d = doc.data();
+    const dateEnd = d.interviewDateEnd || d.timestamp;
+    return {
+      id: doc.id,
+      companyName: d.companyName || 'Company',
+      roleTitle: d.roleTitle || 'Multiple Roles',
+      city: d.city || 'India',
+      area: d.area || '',
+      venueAddress: d.venueAddress || '',
+      interviewDateStart: d.interviewDateStart || d.timestamp,
+      interviewDateEnd: dateEnd,
+      interviewTime: d.interviewTime || '10:00 AM – 5:00 PM',
+      hrContactEmail: d.hrContactEmail || '',
+      hrContactPhone: d.hrContactPhone || '',
+      documentsRequired: d.documentsRequired || 'Updated Resume, Aadhar Card, PAN Card, Passport size photo',
+      eligibility: d.eligibility || 'Any Graduate',
+      package: d.package || '',
+      slug: d.slug || makeSlug(`${d.companyName || 'walkin'}-${d.city || ''}-${doc.id.slice(0, 6)}`),
+      timestamp: d.timestamp || Date.now(),
+      clicks: d.clicks || 0,
+      verified: d.verified !== false,
+      expired: Date.now() > dateEnd,
+    };
+  });
+  cacheTimeWalkins = Date.now();
+  return cachedWalkins;
+}
+
+function clearWalkinCache() { cachedWalkins = null; cacheTimeWalkins = null; console.log('🗑️ Walkin cache cleared'); }
+
+async function getWalkinBySlug(slug) {
+  const snap = await db.collection('walkins').where('slug', '==', slug).limit(1).get();
+  if (!snap.empty) { const d = snap.docs[0].data(); return { id: snap.docs[0].id, ...d }; }
+  return null;
+}
+
+async function addWalkin(data) {
+  const id = uuidv4();
+  const slug = data.slug || makeSlug(`${data.companyName || 'walkin'}-${data.city || ''}-${id.slice(0, 6)}`);
+  await db.collection('walkins').doc(id).set({ ...data, id, slug, timestamp: data.timestamp || Date.now() });
+  clearWalkinCache();
+  return id;
+}
+async function updateWalkin(id, data) { await db.collection('walkins').doc(id).update(data); clearWalkinCache(); }
+async function deleteWalkin(id) { await db.collection('walkins').doc(id).delete(); clearWalkinCache(); }
+async function incrementWalkinClicks(id) { await db.collection('walkins').doc(id).update({ clicks: FieldValue.increment(1) }); }
 
 app.get('/admin/job/:id/json', requireAdmin, async (req, res) => {
   try { const all = await getJobs(); res.json(all.find(j => j.id === req.params.id) || {}); } 

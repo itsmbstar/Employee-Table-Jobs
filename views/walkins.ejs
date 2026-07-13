@@ -1,0 +1,50 @@
+<%- include('partials/header') %>
+<section class="hero hero-sm">
+  <div class="container hero-inner">
+    <div class="city-hero-emoji">🚶</div>
+    <h1><%= selectedCity ? `Walk-In Interviews in ${selectedCity} Today` : 'Verified Walk-In Interview Drives Across India' %></h1>
+    <p class="hero-sub">100% verified, no fake posts. Company, venue, HR contact, and documents required — updated daily. Follow <a href="https://www.instagram.com/walkin.alert.in/" target="_blank" rel="noopener">@walkin.alert.in</a> on Instagram for instant alerts.</p>
+  </div>
+</section>
+
+<main class="container section">
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/">Home</a> › Walk-In Interviews
+  </nav>
+
+  <div class="city-pills" style="margin-bottom:1.5rem">
+    <a href="/walkins" class="city-pill<%= !selectedCity ? ' active' : '' %>">🇮🇳 All India</a>
+    <% cities.forEach(c=>{ %>
+      <a href="/walkins?city=<%= encodeURIComponent(c.name) %>" class="city-pill<%= selectedCity===c.name ? ' active' : '' %>"><%= c.emoji %> <%= c.name %></a>
+    <% }) %>
+  </div>
+
+  <div class="section-header">
+    <h2>Active Walk-In Drives<%= selectedCity ? ' in '+selectedCity : '' %></h2>
+    <span class="job-count-badge"><%= walkins.length %> live</span>
+  </div>
+
+  <% if(walkins.length===0){ %>
+    <div class="empty-state">
+      <p>No active walk-in drives<%= selectedCity ? ' in '+selectedCity : '' %> right now.</p>
+      <div style="display:flex;gap:.75rem;margin-top:1.25rem;flex-wrap:wrap;justify-content:center">
+        <a href="/walkins" class="btn btn-primary">See All Cities</a>
+        <a href="/#subscribe" class="btn btn-outline">🔔 Get Alerts</a>
+      </div>
+    </div>
+  <% }else{ %>
+    <div class="jobs-grid">
+      <% walkins.forEach(w=>{ %><%- include('partials/walkin-card',{walkin:w}) %><% }) %>
+    </div>
+  <% } %>
+
+  <% if(expiredWalkins && expiredWalkins.length>0){ %>
+    <div class="section-header" style="margin-top:2.5rem">
+      <h2 style="opacity:.6">Recently Ended Drives</h2>
+    </div>
+    <div class="jobs-grid" style="opacity:.55">
+      <% expiredWalkins.forEach(w=>{ %><%- include('partials/walkin-card',{walkin:w}) %><% }) %>
+    </div>
+  <% } %>
+</main>
+<%- include('partials/footer') %>

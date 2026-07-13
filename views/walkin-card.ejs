@@ -1,0 +1,38 @@
+<article class="job-card" itemscope itemtype="https://schema.org/JobPosting">
+  <div class="job-card-top">
+    <div class="company-logo-placeholder"><%= (walkin.companyName||'C').charAt(0).toUpperCase() %></div>
+    <div class="job-card-title-block">
+      <h3 class="job-title" itemprop="title">
+        <a href="/walkins/<%= walkin.slug %>"><%= walkin.roleTitle %></a>
+      </h3>
+      <p class="job-company" itemprop="hiringOrganization" itemscope itemtype="https://schema.org/Organization">
+        <span itemprop="name"><%= walkin.companyName %></span>
+      </p>
+    </div>
+    <% if(walkin.verified){ %><span class="verified-badge" title="Verified by Employee Table">✅</span><% } %>
+  </div>
+  <div class="job-meta">
+    <span itemprop="jobLocation" itemscope itemtype="https://schema.org/Place">
+      <span itemprop="address" itemscope itemtype="https://schema.org/PostalAddress">
+        📍 <span itemprop="addressLocality"><%= walkin.city %></span><%= walkin.area ? ', '+walkin.area : '' %>
+      </span>
+    </span>
+    <span>🗓️ <%= new Date(walkin.interviewDateStart).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) %> – <%= new Date(walkin.interviewDateEnd).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) %></span>
+    <span>⏰ <%= walkin.interviewTime %></span>
+    <span>🎓 <%= walkin.eligibility %></span>
+    <% if(walkin.package){ %><span>💰 <%= walkin.package %></span><% } %>
+  </div>
+  <div class="job-footer">
+    <span class="job-time"><%= timeAgo(walkin.timestamp) %></span>
+    <span class="job-clicks">👥 <%= walkin.clicks||0 %> interested</span>
+  </div>
+  <div class="job-actions">
+    <a href="/walkins/<%= walkin.slug %>" class="btn btn-outline btn-sm">View Details</a>
+    <% if(walkin.hrContactPhone){ %>
+      <a href="tel:<%= walkin.hrContactPhone %>" class="btn btn-call btn-sm" onclick="fetch('/walkins/<%= walkin.slug %>/click',{method:'POST'})">📞 Call HR</a>
+    <% } %>
+    <% if(walkin.hrContactEmail){ %>
+      <a href="mailto:<%= walkin.hrContactEmail %>?subject=<%= encodeURIComponent('Application for '+walkin.roleTitle+' - Walk-In Drive') %>" class="btn btn-primary btn-sm">✉️ Email HR</a>
+    <% } %>
+  </div>
+</article>

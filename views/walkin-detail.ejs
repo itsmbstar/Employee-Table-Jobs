@@ -1,0 +1,71 @@
+<%- include('partials/header') %>
+<main class="container section">
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/">Home</a> › <a href="/walkins">Walk-Ins</a> › <%= walkin.companyName %>
+  </nav>
+
+  <% if(isExpired){ %>
+    <div class="flash flash-error" style="position:static;margin-bottom:1.5rem">
+      ⏳ This walk-in drive has ended. Check <a href="/walkins">active walk-in drives</a> below.
+    </div>
+  <% } %>
+
+  <article class="job-detail-card">
+    <div class="job-card-top">
+      <div class="company-logo-placeholder" style="width:56px;height:56px;font-size:1.5rem"><%= (walkin.companyName||'C').charAt(0).toUpperCase() %></div>
+      <div class="job-card-title-block">
+        <h1 style="margin:0"><%= walkin.roleTitle %></h1>
+        <p class="job-company" style="font-size:1.1rem"><%= walkin.companyName %> · <%= walkin.city %><%= walkin.area ? ', '+walkin.area : '' %></p>
+      </div>
+      <% if(walkin.verified){ %><span class="verified-badge" title="Verified by Employee Table" style="font-size:1.5rem">✅ Verified</span><% } %>
+    </div>
+
+    <div class="job-meta" style="margin:1.5rem 0;font-size:1rem">
+      <span>🗓️ <strong><%= new Date(walkin.interviewDateStart).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}) %> – <%= new Date(walkin.interviewDateEnd).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}) %></strong></span>
+      <span>⏰ <%= walkin.interviewTime %></span>
+      <span>🎓 <%= walkin.eligibility %></span>
+      <% if(walkin.package){ %><span>💰 <%= walkin.package %></span><% } %>
+    </div>
+
+    <div class="job-description">
+      <h2>📍 Venue</h2>
+      <p><%= walkin.venueAddress %></p>
+
+      <h2>📄 Documents to Carry</h2>
+      <p><%= walkin.documentsRequired %></p>
+
+      <h2>🎯 Eligibility</h2>
+      <p><%= walkin.eligibility %></p>
+
+      <h2>📞 HR Contact</h2>
+      <p>
+        <% if(walkin.hrContactPhone){ %>Phone/WhatsApp: <a href="tel:<%= walkin.hrContactPhone %>"><%= walkin.hrContactPhone %></a><br><% } %>
+        <% if(walkin.hrContactEmail){ %>Email: <a href="mailto:<%= walkin.hrContactEmail %>"><%= walkin.hrContactEmail %></a><% } %>
+      </p>
+
+      <p style="margin-top:1.5rem;padding:1rem;background:#f0fdf4;border-radius:8px;font-size:.9rem;color:#166534">
+        ✅ This listing was manually verified by Employee Table before publishing. Always carry original documents and arrive during the stated interview window.
+      </p>
+    </div>
+
+    <div class="job-actions" style="margin-top:1.5rem">
+      <% if(walkin.hrContactPhone){ %>
+        <a href="tel:<%= walkin.hrContactPhone %>" class="btn btn-call" onclick="fetch('/walkins/<%= walkin.slug %>/click',{method:'POST'})">📞 Call HR Now</a>
+      <% } %>
+      <% if(walkin.hrContactEmail){ %>
+        <a href="mailto:<%= walkin.hrContactEmail %>?subject=<%= encodeURIComponent('Application for '+walkin.roleTitle+' - Walk-In Drive') %>" class="btn btn-primary">✉️ Email HR</a>
+      <% } %>
+      <a href="/walkins" class="btn btn-outline">← All Walk-Ins</a>
+    </div>
+  </article>
+
+  <% if(related && related.length>0){ %>
+    <div class="section-header" style="margin-top:2.5rem">
+      <h2>Other Walk-Ins in <%= walkin.city %></h2>
+    </div>
+    <div class="jobs-grid">
+      <% related.forEach(w=>{ %><%- include('partials/walkin-card',{walkin:w}) %><% }) %>
+    </div>
+  <% } %>
+</main>
+<%- include('partials/footer') %>

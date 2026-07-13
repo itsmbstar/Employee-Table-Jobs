@@ -6,6 +6,8 @@
     <a class="admin-nav-link" onclick="showTab('stats')">📊 Stats</a>
     <a class="admin-nav-link" onclick="showTab('jobs')">💼 Jobs (<%= stats.jobs %>)</a>
     <a class="admin-nav-link" onclick="showTab('addjob')">➕ Add Job</a>
+    <a class="admin-nav-link" onclick="showTab('walkins')">🚶 Walk-Ins (<%= stats.activeWalkins %>)</a>
+    <a class="admin-nav-link" onclick="showTab('addwalkin')">➕ Add Walk-In</a>
     <a class="admin-nav-link" onclick="showTab('blog')">📝 Blog (<%= stats.posts %>)</a>
     <a class="admin-nav-link" onclick="showTab('addblog')">➕ Add Post</a>
     <a class="admin-nav-link" onclick="showTab('subs')">📧 Subscribers (<%= stats.subs %>)</a>
@@ -18,6 +20,7 @@
     <h1>Dashboard</h1>
     <div class="admin-stats">
       <div class="admin-stat"><span class="stat-val"><%= stats.jobs %></span><span class="stat-label">Jobs</span></div>
+      <div class="admin-stat"><span class="stat-val"><%= stats.activeWalkins %></span><span class="stat-label">Active Walk-Ins</span></div>
       <div class="admin-stat"><span class="stat-val"><%= stats.posts %></span><span class="stat-label">Blog Posts</span></div>
       <div class="admin-stat"><span class="stat-val"><%= stats.subs %></span><span class="stat-label">Subscribers</span></div>
       <div class="admin-stat"><span class="stat-val"><%= stats.users %></span><span class="stat-label">Users</span></div>
@@ -105,6 +108,77 @@
       <div class="form-actions">
         <button type="submit" class="btn btn-primary" id="jobSubmitBtn">➕ Add Job</button>
         <button type="button" class="btn btn-outline" onclick="resetJobForm()">Cancel</button>
+      </div>
+    </form>
+  </section>
+
+  <section id="tab-walkins" class="admin-tab hidden">
+    <h1>Manage Walk-In Drives (<%= walkins.length %>)</h1>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead><tr><th>Company / Role</th><th>City</th><th>Dates</th><th>HR Contact</th><th>Status</th><th>Clicks</th><th>Actions</th></tr></thead>
+        <tbody>
+          <% walkins.forEach(w=>{ %>
+            <tr>
+              <td><a href="/walkins/<%= w.slug %>" target="_blank"><%= w.companyName %> — <%= w.roleTitle %></a></td>
+              <td><%= w.city %></td>
+              <td><%= new Date(w.interviewDateStart).toLocaleDateString('en-IN') %> – <%= new Date(w.interviewDateEnd).toLocaleDateString('en-IN') %></td>
+              <td><%= w.hrContactPhone || w.hrContactEmail || '—' %></td>
+              <td><%= w.expired ? '⏳ Expired' : '✅ Active' %></td>
+              <td><%= w.clicks||0 %></td>
+              <td class="admin-actions">
+                <button class="btn btn-sm btn-outline" onclick="editWalkin('<%= w.id %>')">✏️ Edit</button>
+                <form method="POST" action="/admin/walkin/delete/<%= w.id %>" style="display:inline" onsubmit="return confirm('Delete this walk-in?')">
+                  <button type="submit" class="btn btn-sm btn-danger">🗑</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="tab-addwalkin" class="admin-tab hidden">
+    <h1 id="walkin-form-title">➕ Add New Walk-In Drive</h1>
+    <form method="POST" id="walkinForm" action="/admin/walkin/add" class="admin-form">
+      <div class="form-row">
+        <div class="form-group"><label>Company Name *</label><input type="text" name="companyName" id="w-companyName" required class="form-input" placeholder="e.g. CARS24"></div>
+        <div class="form-group"><label>Role / Position *</label><input type="text" name="roleTitle" id="w-roleTitle" required class="form-input" placeholder="e.g. Telesales Executive"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>City *</label>
+          <select name="city" id="w-city" class="form-input">
+            <% cities.forEach(c=>{ %><option value="<%= c.name %>"><%= c.name %></option><% }) %>
+          </select>
+        </div>
+        <div class="form-group"><label>Area / Locality</label><input type="text" name="area" id="w-area" class="form-input" placeholder="e.g. Andheri East"></div>
+      </div>
+      <div class="form-group"><label>Full Venue Address *</label><textarea name="venueAddress" id="w-venueAddress" required class="form-input" rows="2" placeholder="Complete address including floor, building, landmark, pincode"></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label>Interview Start Date *</label><input type="date" name="interviewDateStart" id="w-interviewDateStart" required class="form-input"></div>
+        <div class="form-group"><label>Interview End Date *</label><input type="date" name="interviewDateEnd" id="w-interviewDateEnd" required class="form-input"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Interview Time</label><input type="text" name="interviewTime" id="w-interviewTime" class="form-input" placeholder="e.g. 10:00 AM - 5:00 PM"></div>
+        <div class="form-group"><label>Package / Salary</label><input type="text" name="package" id="w-package" class="form-input" placeholder="e.g. 15,000 - 25,000/month"></div>
+      </div>
+      <div class="admin-contact-box">
+        <p class="contact-box-title">📞 HR Contact (at least one required)</p>
+        <div class="form-row">
+          <div class="form-group"><label>HR Phone / WhatsApp</label><input type="tel" name="hrContactPhone" id="w-hrContactPhone" class="form-input" placeholder="+919876543210"></div>
+          <div class="form-group"><label>HR Email</label><input type="email" name="hrContactEmail" id="w-hrContactEmail" class="form-input" placeholder="hr@company.com"></div>
+        </div>
+      </div>
+      <div class="form-group"><label>Eligibility</label><input type="text" name="eligibility" id="w-eligibility" class="form-input" placeholder="e.g. Any Graduate, Freshers welcome"></div>
+      <div class="form-group"><label>Documents Required</label><input type="text" name="documentsRequired" id="w-documentsRequired" class="form-input" placeholder="Updated Resume, Aadhar Card, PAN Card, Passport size photo"></div>
+      <div class="form-group form-check">
+        <input type="checkbox" name="verified" id="w-verified" checked>
+        <label for="w-verified">Mark as Verified (confirmed from official source)</label>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="walkinSubmitBtn">➕ Add Walk-In</button>
+        <button type="button" class="btn btn-outline" onclick="resetWalkinForm()">Cancel</button>
       </div>
     </form>
   </section>
@@ -197,7 +271,19 @@ async function editPost(id){
   ['title','excerpt','content','coverImage','tags','metaTitle','metaDescription'].forEach(k=>{const el=document.getElementById('p-'+k);if(el)el.value=p[k]||'';});
   showTab('addblog');window.scrollTo(0,0);
 }
+async function editWalkin(id){
+  const w=await fetch('/admin/walkin/'+id+'/json').then(r=>r.json());
+  document.getElementById('walkin-form-title').textContent='✏️ Edit Walk-In';
+  document.getElementById('walkinForm').action='/admin/walkin/edit/'+id;
+  document.getElementById('walkinSubmitBtn').textContent='💾 Save Changes';
+  ['companyName','roleTitle','city','area','venueAddress','interviewTime','package','hrContactPhone','hrContactEmail','eligibility','documentsRequired'].forEach(k=>{const el=document.getElementById('w-'+k);if(el)el.value=w[k]||'';});
+  if(w.interviewDateStart) document.getElementById('w-interviewDateStart').value=new Date(w.interviewDateStart).toISOString().split('T')[0];
+  if(w.interviewDateEnd) document.getElementById('w-interviewDateEnd').value=new Date(w.interviewDateEnd).toISOString().split('T')[0];
+  const v=document.getElementById('w-verified');if(v)v.checked=w.verified!==false;
+  showTab('walkins');window.scrollTo(0,0);
+}
 function resetJobForm(){document.getElementById('job-form-title').textContent='➕ Add New Job';document.getElementById('jobForm').reset();document.getElementById('jobForm').action='/admin/job/add';document.getElementById('jobSubmitBtn').textContent='➕ Add Job';showTab('jobs');}
 function resetPostForm(){document.getElementById('post-form-title').textContent='➕ Add Blog Post';document.getElementById('postForm').reset();document.getElementById('postForm').action='/admin/blog/add';document.getElementById('postSubmitBtn').textContent='➕ Publish Post';showTab('blog');}
+function resetWalkinForm(){document.getElementById('walkin-form-title').textContent='➕ Add New Walk-In Drive';document.getElementById('walkinForm').reset();document.getElementById('walkinForm').action='/admin/walkin/add';document.getElementById('walkinSubmitBtn').textContent='➕ Add Walk-In';showTab('walkins');}
 </script>
 <%- include('../partials/footer') %>

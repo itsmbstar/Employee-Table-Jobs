@@ -243,11 +243,14 @@ async function getJobBySlug(slug) {
 async function addJob(data) {
   const id = uuidv4();
   const slug = data.slug || makeSlug(`${data.jobRole || 'job'}-${id.slice(0, 6)}`);
+  
   const jobData = {
     ...data,
     id,
     slug,
     timestamp: data.timestamp || Date.now(),
+    
+    // 🔥 AUTO-FIX MISSING FIELDS
     description: data.description || `${data.jobRole} opportunity at ${data.companyName}. Apply now for this ${data.jobType} role.`,
     datePosted: data.datePosted || new Date().toISOString(),
     validThrough: data.validThrough || new Date(Date.now() + 30 * 86400000).toISOString(),
@@ -257,9 +260,11 @@ async function addJob(data) {
         addressCountry: 'IN'
       }
     },
-    experienceRequirements: data.experience === 'Fresher' ? 'Less than 1 year' : (data.experience === 'Experienced' ? '2+ years' : data.experience),
-    educationRequirements: data.qualification || "Bachelor's Degree",
+    experienceRequirements: data.experience === 'Fresher' ? 'Less than 1 year' : 
+                           (data.experience === 'Experienced' ? '2+ years' : data.experience),
+    educationRequirements: data.qualification || "Bachelor's Degree"
   };
+  
   if (data.package && parseSalaryToNumber(data.package)) {
     jobData.baseSalary = {
       '@type': 'MonetaryAmount',
@@ -271,8 +276,8 @@ async function addJob(data) {
       }
     };
   }
+  
   await db.collection('jobs').doc(id).set(jobData);
-  clearCache(); // Clear cache when job added
   return id;
 }
 
@@ -803,10 +808,23 @@ app.get('/sitemap.xml', async (req, res) => {
 });
 
 // FORCE ROBOTS.TXT TO 404
-app.use('/robots.txt', (req, res) => {
-  res.status(404).send('Not Found');
-});
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain');
+  res.send(`User-agent: *
+Allow: /
+Allow: /job/
+Allow: /blog/
+Sitemap: ${DOMAIN}/sitemap.xml
 
+# AI Crawlers
+User-agent: GPTBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: Google-Extended
+Allow: /
+`);
+});
 app.post('/subscribe', async (req, res) => {
   try {
     const { name, email, city } = req.body;

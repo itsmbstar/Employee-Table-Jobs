@@ -12,19 +12,11 @@
   <% }else{ %>
     <div class="blog-grid">
       <% posts.forEach(post=>{ %>
-        <article class="blog-card" itemscope itemtype="https://schema.org/BlogPosting">
-          <% if(post.coverImage){ %>
-            <a href="/blog/<%= post.slug %>"><img src="<%= post.coverImage %>" alt="<%= post.title %>" class="blog-cover" width="400" height="200" loading="lazy" itemprop="image"></a>
-          <% } %>
-          <div class="blog-card-body">
-            <a href="/blog/<%= post.slug %>"><h3 itemprop="headline"><%= post.title %></h3></a>
-            <p class="blog-excerpt" itemprop="description"><%= post.excerpt %></p>
-            <div class="blog-meta">
-              <time itemprop="datePublished" datetime="<%= new Date(post.timestamp).toISOString() %>">📅 <%= timeAgo(post.timestamp) %></time>
-              <a href="/blog/<%= post.slug %>" class="btn btn-outline btn-sm">Read more →</a>
-            </div>
-          </div>
-        </article>
+        <div style="margin-bottom: 10px;">
+  <a href="/blog/<%= post.slug %>"><h2><%= post.title %></h2></a>
+  <p><%= post.excerpt || post.content.substring(0, 150) %>...</p>
+  <small>📅 <%= timeAgo(post.timestamp) %></small>
+</div>
       <% }) %>
     </div>
   <% } %>

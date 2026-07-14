@@ -21,7 +21,7 @@ var extraSchema = '<script type="application/ld+json">' + jobSchema + '<\/script
           <div class="job-detail-title-block">
             <h1 class="job-detail-title"><%= job.jobRole %></h1>
             <p class="job-detail-company"><%= job.companyName %></p>
-            <p class="job-detail-posted">Posted <%= timeAgo(job.timestamp) %> &nbsp;·&nbsp; 👁 <%= views %> views &nbsp;·&nbsp; 👥 <%= job.clicks || 0 %> applied</p>
+            <p class="job-detail-posted">🟢 Active · Posted <%= timeAgo(job.timestamp) %> &nbsp;·&nbsp; 👁 <%= views %> views &nbsp;·&nbsp; 👥 <%= job.clicks || 0 %> applied</p>
           </div>
           <% if(job.verified){ %><span class="verified-badge-lg">✅ Verified</span><% } %>
         </div>
@@ -37,9 +37,10 @@ var extraSchema = '<script type="application/ld+json">' + jobSchema + '<\/script
 
         <div class="job-description">
           <h2>Job Description</h2>
-<div class="job-description-body">
-  <%- job.description || jobDescription %>
-</div>        </div>
+          <div class="job-description-body">
+            <%- job.description || jobDescription %>
+          </div>
+        </div>
 
         <div class="job-detail-actions">
           <% if(job.applyLink && job.applyLink !== ''){ %>

@@ -42,6 +42,22 @@ var extraSchema = '<script type="application/ld+json">' + articleSchema + '<\/sc
         <% }) %>
       </div>
     </section>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How to verify if a job offer is real?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Check company domain, HR email, Google the company, and never pay fees."
+      }
+    }
+  ]
+}
+</script>
   <% } %>
 </main>
 <%- include('../partials/footer') %>

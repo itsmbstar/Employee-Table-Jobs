@@ -6,7 +6,7 @@
   <title><%= title %></title>
   <meta name="description" content="<%= metaDescription %>">
   <link rel="canonical" href="<%= canonical %>">
-  <meta name="robots" content="index, follow">
+  <meta name="robots" content="<%= typeof robotsMeta!=='undefined' && robotsMeta ? robotsMeta : 'index, follow' %>">
   <meta name="author" content="Employee Table">
   <meta property="og:type"        content="<%= typeof ogType!=='undefined'?ogType:'website' %>">
   <meta property="og:title"       content="<%= title %>">

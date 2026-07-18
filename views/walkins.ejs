@@ -3,7 +3,35 @@
   <div class="container hero-inner">
     <div class="city-hero-emoji">🚶</div>
     <h1><%= selectedCity ? `Walk-In Interviews in ${selectedCity} Today` : 'Verified Walk-In Interview Drives Across India' %></h1>
-    <p class="hero-sub">100% verified, no fake posts. Company, venue, HR contact, and documents required — updated daily. Follow <a href="https://www.instagram.com/walkin.alert.in/" target="_blank" rel="noopener">@walkin.alert.in</a> on Instagram for instant alerts.</p>
+    <p class="hero-sub">100% verified, no fake posts. Company, venue, HR contact, and documents required — updated daily. Follow <a style="color:white;" href="https://www.instagram.com/emptable/" target="_blank" rel="noopener">@Emptable</a> on Instagram for instant alerts.</p>
+    <% if(searchQuery || selectedCity){ %>
+      <p class="walkin-seo-blurb">
+        <%= walkins.length %> verified walk-in drive<%= walkins.length!==1?'s':'' %>
+        <%= searchQuery ? ` matching "${searchQuery}"` : '' %>
+        <%= selectedCity ? ` in ${selectedCity}` : '' %> right now —
+        every listing checked for exact venue, HR contact, and documents before it's posted.
+      </p>
+    <% } %>
+  </div>
+</section>
+
+<section class="search-section">
+  <div class="container">
+    <h2 class="section-label">Search Walk-In Drives</h2>
+    <form class="search-form" method="GET" action="/walkins" role="search">
+      <input type="search" name="q" value="<%= searchQuery %>" placeholder="Company, role, or area…" class="search-input" aria-label="Search walk-in drives">
+      <select name="when" class="search-select" aria-label="Filter by date" style="max-width:170px;flex:0 0 auto">
+        <option value="today" <%= selectedWhen==='today'?'selected':'' %>>📅 Today</option>
+        <option value="tomorrow" <%= selectedWhen==='tomorrow'?'selected':'' %>>📅 Tomorrow</option>
+        <option value="weekend" <%= selectedWhen==='weekend'?'selected':'' %>>📅 This Weekend</option>
+        <option value="week" <%= selectedWhen==='week'?'selected':'' %>>📅 Next 7 Days</option>
+      </select>
+      <% if(selectedCity){ %><input type="hidden" name="city" value="<%= selectedCity %>"><% } %>
+      <button type="submit" class="btn btn-primary">🔍 Search</button>
+      <% if(searchQuery || selectedWhen){ %>
+        <a href="/walkins<%= selectedCity ? '?city='+encodeURIComponent(selectedCity) : '' %>" class="btn btn-outline">Clear</a>
+      <% } %>
+    </form>
   </div>
 </section>
 
@@ -13,9 +41,9 @@
   </nav>
 
   <div class="city-pills" style="margin-bottom:1.5rem">
-    <a href="/walkins" class="city-pill<%= !selectedCity ? ' active' : '' %>">🇮🇳 All India</a>
+    <a href="/walkins<%= searchQuery ? '?q='+encodeURIComponent(searchQuery) : '' %>" class="city-pill<%= !selectedCity ? ' active' : '' %>">🇮🇳 All India</a>
     <% cities.forEach(c=>{ %>
-      <a href="/walkins?city=<%= encodeURIComponent(c.name) %>" class="city-pill<%= selectedCity===c.name ? ' active' : '' %>"><%= c.emoji %> <%= c.name %></a>
+      <a href="/walkins?city=<%= encodeURIComponent(c.name) %><%= searchQuery ? '&q='+encodeURIComponent(searchQuery) : '' %>" class="city-pill<%= selectedCity===c.name ? ' active' : '' %>"><%= c.emoji %> <%= c.name %></a>
     <% }) %>
   </div>
 
@@ -26,9 +54,9 @@
 
   <% if(walkins.length===0){ %>
     <div class="empty-state">
-      <p>No active walk-in drives<%= selectedCity ? ' in '+selectedCity : '' %> right now.</p>
+      <p>No active walk-in drives<%= searchQuery ? ` matching "${searchQuery}"` : '' %><%= selectedCity ? ' in '+selectedCity : '' %> right now.</p>
       <div style="display:flex;gap:.75rem;margin-top:1.25rem;flex-wrap:wrap;justify-content:center">
-        <a href="/walkins" class="btn btn-primary">See All Cities</a>
+        <a href="/walkins" class="btn btn-primary">See All Walk-Ins</a>
         <a href="/#subscribe" class="btn btn-outline">🔔 Get Alerts</a>
       </div>
     </div>
@@ -38,7 +66,7 @@
     </div>
   <% } %>
 
-  <% if(expiredWalkins && expiredWalkins.length>0){ %>
+  <% if(!searchQuery && expiredWalkins && expiredWalkins.length>0){ %>
     <div class="section-header" style="margin-top:2.5rem">
       <h2 style="opacity:.6">Recently Ended Drives</h2>
     </div>

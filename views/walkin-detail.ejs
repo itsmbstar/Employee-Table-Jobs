@@ -46,6 +46,18 @@
       <p style="margin-top:1.5rem;padding:1rem;background:#f0fdf4;border-radius:8px;font-size:.9rem;color:#166534">
         ✅ This listing was manually verified by Employee Table before publishing. Always carry original documents and arrive during the stated interview window.
       </p>
+      <% if(!isExpired && faqs && faqs.length>0){ %>
+        <h2 style="margin-top:2rem">❓ Frequently Asked Questions</h2>
+        <div class="walkin-faq">
+          <% faqs.forEach(f=>{ %>
+            <details class="faq-item" style="margin-bottom:.75rem;border:1px solid #e5e7eb;border-radius:8px;padding:.85rem 1rem">
+              <summary style="cursor:pointer;font-weight:600"><%= f.q %></summary>
+              <p style="margin-top:.6rem;color:#444"><%= f.a %></p>
+            </details>
+          <% }) %>
+        </div>
+      <% } %>
+      
     </div>
 
     <div class="job-actions" style="margin-top:1.5rem">

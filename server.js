@@ -485,6 +485,7 @@ app.get('/contact', (req, res) => {
 app.get('/', async (req, res) => {
   try {
     let jobs = await getJobs();
+    const todayWalkins = (await getWalkins()).filter(w => !w.expired).slice(0, 4);
     const { q, city, exp, dateRange, page: pg } = req.query;
     
     if (q && q.trim()) { 
@@ -513,7 +514,6 @@ app.get('/', async (req, res) => {
       });
       return '?' + params;
     };
-    
     res.render('index', { 
       title: 'Verified Jobs for Freshers & Professionals India',
       metaDescription: 'Find 100% verified free job opportunities for freshers across India.',
@@ -525,8 +525,10 @@ app.get('/', async (req, res) => {
       currentPage: cur,
       totalPages: pages,
       buildQuery: buildQuery,
-      cities: CITIES
+      cities: CITIES,
+      todayWalkins
     });
+    
   } catch (e) { 
     console.error(e); 
     res.status(500).send('Server error.'); 
@@ -627,21 +629,96 @@ app.get('/jobs-in-:cityslug', async (req, res) => {
 });
 
 // ── WALK-IN DRIVES: Public Routes ───────────────────────────────────────────
+// ── WALK-IN DRIVES: Public Routes ───────────────────────────────────────────
 app.get('/walkins', async (req, res) => {
   try {
-    const { city } = req.query;
+    const { city, q, when } = req.query;
+
     const all = await getWalkins();
     let active = all.filter(w => !w.expired);
     const expiredWalkins = all.filter(w => w.expired).slice(0, 6);
+
     if (city) active = active.filter(w => (w.city || '').toLowerCase() === city.toLowerCase());
 
+    if (q) {
+      const term = q.toLowerCase().trim();
+      active = active.filter(w =>
+        (w.companyName || '').toLowerCase().includes(term) ||
+        (w.roleTitle || '').toLowerCase().includes(term) ||
+        (w.area || '').toLowerCase().includes(term) ||
+        (w.eligibility || '').toLowerCase().includes(term)
+      );
+    }
+
+ if (when) {
+      const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+      const istNow = new Date(Date.now() + IST_OFFSET_MS);
+      const todayMs = Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate());
+      const tomorrowMs = todayMs + 86400000;
+      const weekEndMs = todayMs + 7 * 86400000;
+
+      const dayOfWeek = istNow.getUTCDay(); // 0=Sun..6=Sat, in IST
+      const satOffset = dayOfWeek === 0 ? -1 : (6 - dayOfWeek) % 7;
+      const satMs = todayMs + satOffset * 86400000;
+      const sunMs = satMs + 86400000;
+      const weekendStart = Math.max(todayMs, satMs);
+      const weekendEnd = sunMs + 86399999;
+
+      active = active.filter(w => {
+        const start = w.interviewDateStart, end = w.interviewDateEnd || start;
+        const overlaps = (rangeStart, rangeEnd) => start <= rangeEnd && end >= rangeStart;
+        if (when === 'today') return overlaps(todayMs, todayMs + 86399999);
+        if (when === 'tomorrow') return overlaps(tomorrowMs, tomorrowMs + 86399999);
+        if (when === 'week') return overlaps(todayMs, weekEndMs);
+        if (when === 'weekend') return overlaps(weekendStart, weekendEnd);
+        return true;
+      });
+    }
+    const pageTitle = q
+      ? `"${q}" Walk-In Interviews${city ? ' in ' + city : ''} | Employee Table`
+      : city
+        ? `Walk-In Interviews in ${city} Today | Employee Table`
+        : 'Verified Walk-In Interview Drives Across India | Employee Table';
+
+    const metaDesc = q
+      ? `${active.length} verified walk-in drive${active.length !== 1 ? 's' : ''} matching "${q}"${city ? ' in ' + city : ''}. Company, venue, HR contact & documents required.`
+      : city
+        ? `${active.length} verified walk-in interview drive${active.length !== 1 ? 's' : ''} happening in ${city} right now. Venue, HR contact & documents required — updated daily.`
+        : 'Daily verified walk-in interview drives across India — company, venue, HR contact, and documents required. 100% verified, no fake posts.';
+
+    let extraSchema = `<script type="application/ld+json">${JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: DOMAIN + '/' },
+        { '@type': 'ListItem', position: 2, name: 'Walk-In Interviews', item: DOMAIN + '/walkins' }
+      ]
+    })}</script>`;
+
+    if (active.length > 0) {
+      extraSchema += `<script type="application/ld+json">${JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        itemListElement: active.slice(0, 20).map((w, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          url: `${DOMAIN}/walkins/${w.slug}`,
+          name: `${w.roleTitle} - Walk-In at ${w.companyName}, ${w.city}`
+        }))
+      })}</script>`;
+    }
+
     res.render('walkins', {
-      title: city ? `Walk-In Interviews in ${city} Today | Employee Table` : 'Verified Walk-In Interviews Today | Employee Table',
-      metaDescription: 'Daily verified walk-in interview drives across India — company, venue, HR contact, and documents required. 100% verified, no fake posts.',
+      title: pageTitle,
+      metaDescription: metaDesc,
       canonical: DOMAIN + '/walkins' + (city ? '?city=' + encodeURIComponent(city) : ''),
+      robotsMeta: (q || when) ? 'noindex, follow' : 'index, follow',
+      extraSchema,
       walkins: active,
       expiredWalkins,
       selectedCity: city || '',
+      selectedWhen: when || '',
+      searchQuery: q || '',
       cities: CITIES
     });
   } catch (e) { console.error(e); res.status(500).send('Server error.'); }
@@ -662,7 +739,7 @@ app.get('/walkins/:slug', async (req, res) => {
     const allWalkins = await getWalkins();
     const related = allWalkins.filter(w => w.id !== walkin.id && !w.expired && w.city === walkin.city).slice(0, 3);
 
-    const jobSchema = JSON.stringify({
+    const jobSchema = {
       '@context': 'https://schema.org',
       '@type': 'JobPosting',
       title: `${walkin.roleTitle} - Walk-In Interview`,
@@ -673,14 +750,54 @@ app.get('/walkins/:slug', async (req, res) => {
       jobLocation: { '@type': 'Place', address: { '@type': 'PostalAddress', streetAddress: walkin.venueAddress, addressLocality: walkin.city, addressCountry: 'IN' } },
       employmentType: 'FULL_TIME',
       url: `${DOMAIN}/walkins/${walkin.slug}`
-    });
+    };
+
+    // ── FAQ content — auto-built from this listing's own data ──
+    const faqs = [
+      {
+        q: `What documents do I need to carry for the ${walkin.companyName} walk-in interview?`,
+        a: `Carry ${walkin.documentsRequired}. Bring originals plus one photocopy of each, and arrive during the stated interview window.`
+      },
+      {
+        q: `Where is the ${walkin.companyName} walk-in interview venue in ${walkin.city}?`,
+        a: `${walkin.venueAddress}. Reach a little early — walk-ins often see long queues near closing time.`
+      },
+      {
+        q: `Who is eligible for the ${walkin.roleTitle} role at ${walkin.companyName}?`,
+        a: `${walkin.eligibility}. Check the full listing above for any additional shift or location requirements.`
+      },
+      {
+        q: `What are the walk-in interview dates and timing for ${walkin.companyName}?`,
+        a: `Walk-ins are open from ${new Date(walkin.interviewDateStart).toLocaleDateString('en-IN',{day:'numeric',month:'long'})} to ${new Date(dateEnd).toLocaleDateString('en-IN',{day:'numeric',month:'long'})}, ${walkin.interviewTime}.`
+      },
+      {
+        q: `Is this ${walkin.companyName} walk-in drive verified?`,
+        a: `Yes — every walk-in listed on Employee Table is manually checked before publishing, including venue and HR contact details, so you don't waste a trip on a fake listing.`
+      }
+    ];
+
+    const faqSchema = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqs.map(f => ({
+        '@type': 'Question',
+        name: f.q,
+        acceptedAnswer: { '@type': 'Answer', text: f.a }
+      }))
+    };
+
+    let extraSchema = '';
+    if (!isExpired) {
+      extraSchema = `<script type="application/ld+json">${JSON.stringify(jobSchema)}</script>`;
+      extraSchema += `<script type="application/ld+json">${JSON.stringify(faqSchema)}</script>`;
+    }
 
     res.render('walkin-detail', {
       title: `${walkin.companyName} Walk-In Interview – ${walkin.roleTitle} | ${walkin.city} | Employee Table`,
       metaDescription: `Walk-in interview at ${walkin.companyName} for ${walkin.roleTitle} in ${walkin.city}. Verified venue, HR contact & documents required.`,
       canonical: `${DOMAIN}/walkins/${walkin.slug}`,
-      extraSchema: isExpired ? '' : `<script type="application/ld+json">${jobSchema}</script>`,
-      walkin, related, isExpired
+      extraSchema,
+      walkin, related, isExpired, faqs
     });
   } catch (e) { console.error(e); res.status(500).send('Error loading walk-in.'); }
 });

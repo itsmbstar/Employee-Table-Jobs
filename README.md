@@ -15,7 +15,7 @@ node server.js
 ```
 
 Open: http://localhost:3000
-Admin: http://localhost:3000/admin (password: admin123)
+Admin: http://localhost:3000/admin (password: basic)
 
 ## Deploy to Render (Web Service)
 

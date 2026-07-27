@@ -1,0 +1,84 @@
+<!-- ── JOB ALERT POPUP ────────────────────────────────────────────────── -->
+<div id="jobAlertPopup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
+  <div style="background:#fff; max-width:450px; width:90%; padding:30px; border-radius:12px; position:relative; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+    <button onclick="closePopup()" style="position:absolute; top:12px; right:16px; background:none; border:none; font-size:24px; cursor:pointer;">✕</button>
+    <h2 style="margin:0 0 10px 0;">🔔 Get Daily Job Alerts</h2>
+    <p style="margin:0 0 20px 0; color:#555;">Never miss a verified job opportunity. We'll email you matching jobs daily.</p>
+    <form id="popupSubForm" onsubmit="submitPopupForm(event)">
+      <input type="text" id="popupName" placeholder="Your Name" required style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+      <input type="email" id="popupEmail" placeholder="Email Address" required style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+      <select id="popupCity" style="width:100%; padding:12px; margin-bottom:15px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+        <option value="">Any City</option>
+        <option value="Mumbai">Mumbai</option>
+        <option value="Bangalore">Bangalore</option>
+        <option value="Delhi">Delhi</option>
+        <option value="Hyderabad">Hyderabad</option>
+        <option value="Pune">Pune</option>
+        <option value="Noida">Noida</option>
+        <option value="Chennai">Chennai</option>
+        <option value="Remote">Remote</option>
+      </select>
+      <button type="submit" style="width:100%; padding:14px; background:#007bff; color:#fff; border:none; border-radius:6px; font-size:16px; font-weight:bold; cursor:pointer;">🔔 Get Job Alerts</button>
+    </form>
+    <p id="popupMsg" style="margin:10px 0 0 0; font-size:14px;"></p>
+    <p style="font-size:12px; color:#888; margin-top:10px;">No spam. Unsubscribe anytime.</p>
+  </div>
+</div>
+
+<script>
+// ── Popup Controls ──
+function showPopup() {
+  if (localStorage.getItem('popupClosed')) return;
+  const popup = document.getElementById('jobAlertPopup');
+  if (popup) popup.style.display = 'flex';
+}
+
+function closePopup() {
+  const popup = document.getElementById('jobAlertPopup');
+  if (popup) popup.style.display = 'none';
+  localStorage.setItem('popupClosed', 'true');
+}
+
+// Show popup after 5 seconds
+setTimeout(showPopup, 5000);
+
+// Show popup when user scrolls to 60%
+window.addEventListener('scroll', function() {
+  if (localStorage.getItem('popupClosed')) return;
+  if (window.scrollY > document.body.scrollHeight * 0.6) {
+    showPopup();
+  }
+});
+
+// ── Popup Form Submit ──
+async function submitPopupForm(e) {
+  e.preventDefault();
+  const name = document.getElementById('popupName').value;
+  const email = document.getElementById('popupEmail').value;
+  const city = document.getElementById('popupCity').value;
+  const btn = e.target.querySelector('button');
+  btn.disabled = true;
+  btn.textContent = 'Subscribing...';
+
+  try {
+    const res = await fetch('/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ name, email, city })
+    });
+    const data = await res.json();
+    const msg = document.getElementById('popupMsg');
+    msg.textContent = data.message;
+    msg.style.color = data.ok ? '#28a745' : '#dc3545';
+    if (data.ok) {
+      e.target.reset();
+      localStorage.setItem('popupClosed', 'true');
+      setTimeout(closePopup, 3000);
+    }
+  } catch (err) {
+    document.getElementById('popupMsg').textContent = 'Error. Please try again.';
+  }
+  btn.disabled = false;
+  btn.textContent = '🔔 Get Job Alerts';
+}
+</script>

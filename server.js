@@ -9,7 +9,6 @@ const { v4: uuidv4 } = require('uuid');
 const slugify        = require('slugify');
 const multer         = require('multer');
 const admin          = require('firebase-admin');
-
 // ── Config ──────────────────────────────────────────────────────────────────
 const DOMAIN         = process.env.DOMAIN        || 'https://www.employeetable.in';
 const PORT           = process.env.PORT           || 3000;
@@ -50,6 +49,9 @@ function clearSitemapCache() {
   sitemapCacheTime = null;
   console.log('🗑️ Sitemap cache cleared');
 }
+
+require('dotenv').config();
+'use strict';
 
 // ── Firebase Admin Init ─────────────────────────────────────────────────────
 if (!admin.apps.length) {
@@ -218,8 +220,7 @@ async function getJobs() {
   return cachedJobs;
 }
 
-// ── ✅ PROBLEM 6 FIX: HOMEPAGE FRESHER-FIRST SORT ──────────────────────────
-// ── POSTS – full list ──────────────────────────────────────────────────────
+// POSTS – full list
 async function getPosts() {
   if (cachedPosts && cacheTimePosts && (Date.now() - cacheTimePosts < CACHE_DURATION)) {
     console.log('📦 Returning cached posts');
@@ -362,6 +363,7 @@ async function incrementWalkinClicks(id) { await db.collection('walkins').doc(id
 
 // ── OTHER DB OPERATIONS ─────────────────────────────────────────────────────
 
+// ── ✅ SINGLE addJob FUNCTION (with email alerts) ──────────────────────────
 async function addJob(data) {
   const id = uuidv4();
   const slug = data.slug || makeSlug(`${data.jobRole || 'job'}-${id.slice(0, 6)}`);
@@ -394,6 +396,14 @@ async function addJob(data) {
     };
   }
   await db.collection('jobs').doc(id).set(jobData);
+
+  // ── ✅ SEND EMAIL ALERTS ──
+  try {
+    await sendJobAlertsToSubscribers(jobData);
+  } catch (e) {
+    console.error('Email alert error:', e.message);
+  }
+
   clearCache();
   clearJobDetailCache();
   clearSitemapCache();
@@ -476,6 +486,72 @@ async function incrementView(key) {
   await ref.set({ [key]: FieldValue.increment(1) }, { merge: true });
   const updated = await ref.get();
   return (updated.data() || {})[key] || 1;
+}
+
+// ── EMAIL SYSTEM ────────────────────────────────────────────────────────────
+const nodemailer = require('nodemailer');
+
+// Email transporter
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
+// ── Send a single job alert to a subscriber ──
+async function sendJobAlert(subscriber, job) {
+  if (!job) return;
+
+  const city = subscriber.city || 'India';
+  const mailOptions = {
+    from: `"Employee Table" <${process.env.EMAIL_USER}>`,
+    to: subscriber.email,
+    subject: `🔔 New Verified Job Alert: ${job.jobRole} at ${job.companyName}`,
+    html: `
+      <h2>Hello ${subscriber.name},</h2>
+      <p>A new verified job matching your preferences is now available:</p>
+      <div style="background:#f4f4f4;padding:15px;border-radius:8px;margin:15px 0;">
+        <h3 style="margin:0 0 5px 0;">${job.jobRole}</h3>
+        <p style="margin:0;"><strong>${job.companyName}</strong> – ${job.workLocation}</p>
+        <p style="margin:5px 0;">${job.experience} · ${job.package || 'Competitive'}</p>
+        <a href="${DOMAIN}/job/${job.slug}" style="display:inline-block;background:#007bff;color:#fff;padding:8px 16px;border-radius:4px;text-decoration:none;margin-top:10px;">Apply Now →</a>
+      </div>
+      <p style="font-size:0.9rem;color:#888;">
+        You received this because you subscribed to job alerts. 
+        <a href="${DOMAIN}/unsubscribe?email=${encodeURIComponent(subscriber.email)}">Unsubscribe</a>
+      </p>
+    `
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Alert sent to ${subscriber.email} for ${job.jobRole}`);
+  } catch (err) {
+    console.error(`❌ Failed for ${subscriber.email}:`, err.message);
+  }
+}
+
+// ── Send alerts to all subscribers for a new job ──
+async function sendJobAlertsToSubscribers(job) {
+  const subs = await getSubs();
+  const active = subs.filter(s => s.active !== false);
+  
+  // If job has a location, filter subscribers by city
+  const jobCity = job.workLocation || 'India';
+  const matches = active.filter(s => {
+    const subCity = s.city || 'India';
+    return subCity.toLowerCase().includes(jobCity.toLowerCase()) || subCity === 'Any' || subCity === '';
+  });
+
+  console.log(`📧 Sending alerts to ${matches.length} subscribers for ${job.jobRole}`);
+  
+  for (const sub of matches) {
+    await sendJobAlert(sub, job);
+    // Delay between emails to avoid rate limits
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
 }
 
 // ── EXPRESS SETUP ───────────────────────────────────────────────────────────
@@ -604,14 +680,12 @@ app.get('/contact', (req, res) => {
 
 // ── PUBLIC ROUTES ──────────────────────────────────────────────────────────
 
-// ── ✅ PROBLEM 6 FIX: HOMEPAGE FRESHER-FIRST SORT ──────────────────────────
+// ── ✅ HOMEPAGE FRESHER-FIRST SORT ──────────────────────────────────────────
 app.get('/', async (req, res) => {
   try {
-    // Fetch all jobs (cached)
     let jobs = await getJobs();
     const { q, city, exp, dateRange, page: pg } = req.query;
     
-    // Apply filters (unchanged)
     if (q && q.trim()) { 
       const kw = getExpandedKeywords(q.trim()); 
       jobs = jobs.filter(j => jobMatchesQuery(j, kw)); 
@@ -623,8 +697,6 @@ app.get('/', async (req, res) => {
       if (ms) jobs = jobs.filter(j => (Date.now() - (j.timestamp || 0)) <= ms); 
     }
     
-    // ── ✅ FRESHER-FIRST SORT ──
-    // Sort by experience level: Fresher first, then 0-2 years, then others
     const getExperienceWeight = (exp) => {
       if (!exp) return 5;
       const e = exp.toLowerCase();
@@ -767,7 +839,7 @@ app.get('/jobs-in-:cityslug', async (req, res) => {
   }
 });
 
-// ── WALK-IN DRIVES: Public Routes ──────────────────────────────────────────
+// ── WALK-IN DRIVES ──────────────────────────────────────────────────────────
 
 app.get('/walkins', async (req, res) => {
   try {
@@ -815,7 +887,7 @@ app.get('/walkins', async (req, res) => {
       searchQuery: q || '',
       selectedWhen: when || '',
       cities: CITIES,
-      ogImage: 'https://www.employeetable.in/img/og-image.jpg'  // ✅ UPDATED: Using og-image.jpg instead of logo.png
+      ogImage: 'https://www.employeetable.in/img/og-image.jpg'
     });
   } catch (e) {
     console.error(e);
@@ -823,7 +895,6 @@ app.get('/walkins', async (req, res) => {
   }
 });
 
-// ── ✅ FIXED WALK-IN DETAIL ROUTE (PROBLEMS 1, 2, 3) ────────────────────────
 app.get('/walkins/:slug', async (req, res) => {
   try {
     const walkin = await getWalkinBySlug(req.params.slug);
@@ -870,19 +941,8 @@ app.get('/walkins/:slug', async (req, res) => {
 
     const extraSchema = isExpired ? '' : `<script type="application/ld+json">${jobSchema}</script>`;
 
-    // ── ✅ PROBLEM 1 FIX: Meta description uses END date (or date range) ──
-    const startDate = new Date(safeWalkin.interviewDateStart);
-    const endDate = new Date(safeWalkin.interviewDateEnd);
-    const isSingleDay = startDate.toDateString() === endDate.toDateString();
-    let dateRangeStr;
-    if (isSingleDay) {
-      dateRangeStr = startDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-    } else {
-      dateRangeStr = `${startDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${endDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
-    }
-
     const title = `Walk-In Drive: ${safeWalkin.companyName} ${safeWalkin.city} | ${safeWalkin.roleTitle} — Apply Free | Employee Table`;
-    const metaDescription = `Walk-in drive open until ${endDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. ${safeWalkin.companyName} in ${safeWalkin.city} — ${safeWalkin.roleTitle}. ${safeWalkin.venueAddress}. No fees. Apply free.`;
+    const metaDescription = `Walk-in drive open until ${new Date(dateEnd).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. ${safeWalkin.companyName} in ${safeWalkin.city} — ${safeWalkin.roleTitle}. ${safeWalkin.venueAddress}. No fees. Apply free.`;
 
     res.render('walkin-detail', {
       title: title,
@@ -893,7 +953,7 @@ app.get('/walkins/:slug', async (req, res) => {
       related: related,
       isExpired: isExpired,
       faqs: [],
-      ogImage: 'https://www.employeetable.in/img/og-image.jpg'  // ✅ UPDATED: Using og-image.jpg
+      ogImage: 'https://www.employeetable.in/img/og-image.jpg'
     });
   } catch (e) {
     console.error('❌ Walk-in detail error:', e.message);
@@ -924,7 +984,6 @@ app.get('/blog', async (req, res) => {
   }
 });
 
-// ── ✅ PROBLEM 9 FIX: Pass walkins data to blog posts for internal linking ──
 app.get('/blog/:slug', async (req, res) => {
   try {
     const post = await getPostBySlug(req.params.slug);
@@ -939,7 +998,6 @@ app.get('/blog/:slug', async (req, res) => {
     const all = await getPosts();
     const related = all.filter(p => p.id !== post.id).slice(0, 3);
     
-    // ── ✅ FETCH WALKINS FOR INTERNAL LINKING ──
     const walkins = await getWalkins();
     
     const articleSchema = JSON.stringify({
@@ -971,7 +1029,7 @@ app.get('/blog/:slug', async (req, res) => {
       views, 
       articleSchema, 
       breadcrumbSchema,
-      walkins: walkins  // ✅ Pass walkins to view
+      walkins: walkins
     });
   } catch (e) { 
     console.error(e); 
@@ -979,7 +1037,7 @@ app.get('/blog/:slug', async (req, res) => {
   }
 });
 
-// ── SITEMAP (CACHED) ───────────────────────────────────────────────────────
+// ── SITEMAP ─────────────────────────────────────────────────────────────────
 
 app.get('/sitemap.xml', async (req, res) => {
   if (cachedSitemap && sitemapCacheTime && (Date.now() - sitemapCacheTime < SITEMAP_CACHE_TTL)) {
@@ -1041,7 +1099,7 @@ app.get('/sitemap.xml', async (req, res) => {
   }
 });
 
-// ── ✅ ROBOTS.TXT (PROBLEM 12 CONFIRMED) ──────────────────────────────────
+// ── ROBOTS.TXT ──────────────────────────────────────────────────────────────
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain');
   res.send(`User-agent: *
@@ -1072,6 +1130,29 @@ app.post('/subscribe', async (req, res) => {
     await addSub({ name, email, city: city || 'Any', subscribedAt: Date.now(), active: true });
     res.json({ ok: true, message: `✅ Subscribed! Alerts will be sent to ${email}` });
   } catch (e) { res.json({ ok: false, message: 'Error.' }); }
+});
+
+// ── ✅ UNSUBSCRIBE ROUTE ────────────────────────────────────────────────────
+app.get('/unsubscribe', async (req, res) => {
+  const email = req.query.email;
+  if (!email) return res.redirect('/');
+  
+  try {
+    const subs = await getSubs();
+    const sub = subs.find(s => s.email === email);
+    if (sub) {
+      await db.collection('subscribers').doc(sub.id).update({ active: false });
+      res.send(`
+        <h2>✅ You have been unsubscribed</h2>
+        <p>You will no longer receive job alerts from Employee Table.</p>
+        <p><a href="/">Return to Employee Table</a></p>
+      `);
+    } else {
+      res.send('Email not found in our system.');
+    }
+  } catch (e) {
+    res.status(500).send('Error processing unsubscribe.');
+  }
 });
 
 app.post('/send-message', async (req, res) => {

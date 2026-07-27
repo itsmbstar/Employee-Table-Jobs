@@ -1,20 +1,20 @@
 <%- include('partials/header') %>
 
-<!-- ── ✅ SEO FIX: CANONICAL, OG, TWITTER, HREFLANG, NOINDEX ────────────── -->
+<!-- ── ✅ SEO FIXES: CANONICAL, OG, TWITTER, HREFLANG, NOINDEX ────────────── -->
 <link rel="canonical" href="<%= canonical %>">
 
 <meta property="og:type" content="article">
 <meta property="og:title" content="<%= title %>">
 <meta property="og:description" content="<%= metaDescription %>">
 <meta property="og:url" content="<%= canonical %>">
-<meta property="og:image" content="<%= ogImage || 'https://www.employeetable.in/img/logo.png' %>">
+<meta property="og:image" content="<%= ogImage || 'https://www.employeetable.in/img/og-image.jpg' %>">
 <meta property="og:site_name" content="Employee Table">
 <meta property="og:locale" content="en_IN">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="<%= title %>">
 <meta name="twitter:description" content="<%= metaDescription %>">
-<meta name="twitter:image" content="<%= ogImage || 'https://www.employeetable.in/img/logo.png' %>">
+<meta name="twitter:image" content="<%= ogImage || 'https://www.employeetable.in/img/og-image.jpg' %>">
 
 <link rel="alternate" hreflang="en-IN" href="<%= canonical %>">
 
@@ -56,6 +56,7 @@
     </div>
 
     <div class="job-meta" style="margin:1.5rem 0;font-size:1rem">
+      <!-- ── ✅ DISPLAY DATE RANGE ──────────────────────────────────────── -->
       <span>🗓️ <strong><%= new Date(walkin.interviewDateStart).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}) %> – <%= new Date(walkin.interviewDateEnd).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}) %></strong></span>
       <span>⏰ <%= walkin.interviewTime %></span>
       <span>🎓 <%= walkin.eligibility %></span>

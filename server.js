@@ -26,13 +26,9 @@ let cacheTimePosts = null;
 let cachedWalkins = null;
 let cacheTimeWalkins = null;
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
-
-// Individual caches for job & post details
 let jobDetailCache = {};
 let postDetailCache = {};
 const DETAIL_CACHE_TTL = 60 * 60 * 1000; // 1 hour
-
-// Sitemap cache
 let cachedSitemap = null;
 let sitemapCacheTime = null;
 const SITEMAP_CACHE_TTL = 60 * 60 * 1000; // 1 hour
@@ -222,7 +218,8 @@ async function getJobs() {
   return cachedJobs;
 }
 
-// POSTS – full list
+// ── ✅ PROBLEM 6 FIX: HOMEPAGE FRESHER-FIRST SORT ──────────────────────────
+// ── POSTS – full list ──────────────────────────────────────────────────────
 async function getPosts() {
   if (cachedPosts && cacheTimePosts && (Date.now() - cacheTimePosts < CACHE_DURATION)) {
     console.log('📦 Returning cached posts');
@@ -607,11 +604,14 @@ app.get('/contact', (req, res) => {
 
 // ── PUBLIC ROUTES ──────────────────────────────────────────────────────────
 
+// ── ✅ PROBLEM 6 FIX: HOMEPAGE FRESHER-FIRST SORT ──────────────────────────
 app.get('/', async (req, res) => {
   try {
+    // Fetch all jobs (cached)
     let jobs = await getJobs();
     const { q, city, exp, dateRange, page: pg } = req.query;
     
+    // Apply filters (unchanged)
     if (q && q.trim()) { 
       const kw = getExpandedKeywords(q.trim()); 
       jobs = jobs.filter(j => jobMatchesQuery(j, kw)); 
@@ -622,6 +622,18 @@ app.get('/', async (req, res) => {
       const ms = { 1: 86400000, 3: 3 * 86400000, 7: 7 * 86400000 }[dateRange]; 
       if (ms) jobs = jobs.filter(j => (Date.now() - (j.timestamp || 0)) <= ms); 
     }
+    
+    // ── ✅ FRESHER-FIRST SORT ──
+    // Sort by experience level: Fresher first, then 0-2 years, then others
+    const getExperienceWeight = (exp) => {
+      if (!exp) return 5;
+      const e = exp.toLowerCase();
+      if (e.includes('fresher') || e.includes('0') || e.includes('entry')) return 1;
+      if (e.includes('1') || e.includes('2') || e.includes('intern')) return 2;
+      if (e.includes('3') || e.includes('4') || e.includes('5')) return 3;
+      return 4;
+    };
+    jobs.sort((a, b) => getExperienceWeight(a.experience) - getExperienceWeight(b.experience));
     
     const total = jobs.length;
     const cur = Math.max(1, parseInt(pg) || 1);
@@ -639,9 +651,8 @@ app.get('/', async (req, res) => {
       return '?' + params;
     };
 
-    // Walk-ins for today (cached)
     const allWalkins = await getWalkins();
-    const todayWalkins = allWalkins.filter(w => !w.expired).slice(0, 4); // show up to 4
+    const todayWalkins = allWalkins.filter(w => !w.expired).slice(0, 4);
     
     res.render('index', { 
       title: 'Verified Jobs for Freshers & Professionals India',
@@ -756,7 +767,7 @@ app.get('/jobs-in-:cityslug', async (req, res) => {
   }
 });
 
-// ── WALK-IN DRIVES: Public Routes (FIXED) ──────────────────────────────────
+// ── WALK-IN DRIVES: Public Routes ──────────────────────────────────────────
 
 app.get('/walkins', async (req, res) => {
   try {
@@ -804,7 +815,7 @@ app.get('/walkins', async (req, res) => {
       searchQuery: q || '',
       selectedWhen: when || '',
       cities: CITIES,
-      ogImage: 'https://www.employeetable.in/img/logo.png'
+      ogImage: 'https://www.employeetable.in/img/og-image.jpg'  // ✅ UPDATED: Using og-image.jpg instead of logo.png
     });
   } catch (e) {
     console.error(e);
@@ -812,8 +823,7 @@ app.get('/walkins', async (req, res) => {
   }
 });
 
-// ── ✅ FIXED WALK-IN DETAIL ROUTE ──────────────────────────────────────────
-
+// ── ✅ FIXED WALK-IN DETAIL ROUTE (PROBLEMS 1, 2, 3) ────────────────────────
 app.get('/walkins/:slug', async (req, res) => {
   try {
     const walkin = await getWalkinBySlug(req.params.slug);
@@ -825,7 +835,6 @@ app.get('/walkins/:slug', async (req, res) => {
       });
     }
 
-    // Ensure all required fields exist (safe fallbacks)
     const safeWalkin = {
       ...walkin,
       roleTitle: walkin.roleTitle || 'Walk-In Drive',
@@ -861,9 +870,19 @@ app.get('/walkins/:slug', async (req, res) => {
 
     const extraSchema = isExpired ? '' : `<script type="application/ld+json">${jobSchema}</script>`;
 
-    // ✅ SEO-OPTIMIZED TITLE AND META DESCRIPTION
+    // ── ✅ PROBLEM 1 FIX: Meta description uses END date (or date range) ──
+    const startDate = new Date(safeWalkin.interviewDateStart);
+    const endDate = new Date(safeWalkin.interviewDateEnd);
+    const isSingleDay = startDate.toDateString() === endDate.toDateString();
+    let dateRangeStr;
+    if (isSingleDay) {
+      dateRangeStr = startDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    } else {
+      dateRangeStr = `${startDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${endDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    }
+
     const title = `Walk-In Drive: ${safeWalkin.companyName} ${safeWalkin.city} | ${safeWalkin.roleTitle} — Apply Free | Employee Table`;
-    const metaDescription = `Walk-in interview at ${safeWalkin.companyName} for ${safeWalkin.roleTitle} in ${safeWalkin.city} on ${new Date(safeWalkin.interviewDateStart).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. Verified venue, HR contact & documents required. 100% free, no scams.`;
+    const metaDescription = `Walk-in drive open until ${endDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. ${safeWalkin.companyName} in ${safeWalkin.city} — ${safeWalkin.roleTitle}. ${safeWalkin.venueAddress}. No fees. Apply free.`;
 
     res.render('walkin-detail', {
       title: title,
@@ -874,7 +893,7 @@ app.get('/walkins/:slug', async (req, res) => {
       related: related,
       isExpired: isExpired,
       faqs: [],
-      ogImage: 'https://www.employeetable.in/img/logo.png'
+      ogImage: 'https://www.employeetable.in/img/og-image.jpg'  // ✅ UPDATED: Using og-image.jpg
     });
   } catch (e) {
     console.error('❌ Walk-in detail error:', e.message);
@@ -905,6 +924,7 @@ app.get('/blog', async (req, res) => {
   }
 });
 
+// ── ✅ PROBLEM 9 FIX: Pass walkins data to blog posts for internal linking ──
 app.get('/blog/:slug', async (req, res) => {
   try {
     const post = await getPostBySlug(req.params.slug);
@@ -918,6 +938,9 @@ app.get('/blog/:slug', async (req, res) => {
     const views = await incrementView('blog_' + post.id);
     const all = await getPosts();
     const related = all.filter(p => p.id !== post.id).slice(0, 3);
+    
+    // ── ✅ FETCH WALKINS FOR INTERNAL LINKING ──
+    const walkins = await getWalkins();
     
     const articleSchema = JSON.stringify({
       '@context': 'https://schema.org',
@@ -947,13 +970,13 @@ app.get('/blog/:slug', async (req, res) => {
       related, 
       views, 
       articleSchema, 
-      breadcrumbSchema 
+      breadcrumbSchema,
+      walkins: walkins  // ✅ Pass walkins to view
     });
   } catch (e) { 
     console.error(e); 
     res.status(500).send('Error loading post.'); 
   }
-  const walkins = await getWalkins();   // after fetching the post
 });
 
 // ── SITEMAP (CACHED) ───────────────────────────────────────────────────────
@@ -1018,7 +1041,7 @@ app.get('/sitemap.xml', async (req, res) => {
   }
 });
 
-// ── ROBOTS.TXT ──────────────────────────────────────────────────────────────
+// ── ✅ ROBOTS.TXT (PROBLEM 12 CONFIRMED) ──────────────────────────────────
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain');
   res.send(`User-agent: *

@@ -26,7 +26,6 @@ var extraSchema = '<script type="application/ld+json">' + articleSchema + '<\/sc
 
   <!-- ── ✅ SEO FIX: CURRENT WALK‑IN DRIVES FOR THIS CITY ──────────────── -->
   <% 
-    // Detect city from post tags
     var city = '';
     if (post.tags) {
       var tagsLower = post.tags.toLowerCase();

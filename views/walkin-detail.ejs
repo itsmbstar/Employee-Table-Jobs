@@ -1,8 +1,38 @@
 <%- include('partials/header') %>
+
+<!-- ── ✅ SEO FIX: CANONICAL, OG, TWITTER, HREFLANG, NOINDEX ────────────── -->
+<link rel="canonical" href="<%= canonical %>">
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="<%= title %>">
+<meta property="og:description" content="<%= metaDescription %>">
+<meta property="og:url" content="<%= canonical %>">
+<meta property="og:image" content="<%= ogImage || 'https://www.employeetable.in/img/logo.png' %>">
+<meta property="og:site_name" content="Employee Table">
+<meta property="og:locale" content="en_IN">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="<%= title %>">
+<meta name="twitter:description" content="<%= metaDescription %>">
+<meta name="twitter:image" content="<%= ogImage || 'https://www.employeetable.in/img/logo.png' %>">
+
+<link rel="alternate" hreflang="en-IN" href="<%= canonical %>">
+
+<% if(isExpired) { %>
+  <meta name="robots" content="noindex, nofollow">
+<% } %>
+
 <main class="container section">
+
+  <!-- ── HTML BREADCRUMB ────────────────────────────────────────────────── -->
   <nav class="breadcrumb" aria-label="Breadcrumb">
-    <a href="/">Home</a> › <a href="/walkins">Walk-Ins</a> › <%= walkin.companyName %>
+    <a href="/">Home</a> › 
+    <a href="/walkins">Walk-In Drives</a> › 
+    <%= walkin.companyName %> <%= walkin.city %>
   </nav>
+
+  <!-- ── ✅ SEO FIX: H1 FORMAT ─────────────────────────────────────────── -->
+  <h1>Walk-In Drive: <%= walkin.companyName %> <%= walkin.city %> — <%= new Date(walkin.interviewDateStart).toLocaleString('en-IN', { month: 'long', year: 'numeric' }) %></h1>
 
   <% if(isExpired){ %>
     <div class="flash flash-error" style="position:static;margin-bottom:1.5rem">
@@ -12,9 +42,14 @@
 
   <article class="job-detail-card">
     <div class="job-card-top">
-      <div class="company-logo-placeholder" style="width:56px;height:56px;font-size:1.5rem"><%= (walkin.companyName||'C').charAt(0).toUpperCase() %></div>
+      <!-- ── ✅ SEO FIX: COMPANY LOGO WITH ALT TEXT & LAZY LOAD ─────────── -->
+      <% if(walkin.companyLogo && walkin.companyLogo.startsWith('http')){ %>
+        <img src="<%= walkin.companyLogo %>" alt="<%= walkin.companyName %> logo — Walk-In Drive in <%= walkin.city %>" class="company-logo-lg" width="56" height="56" loading="lazy" onerror="this.style.display='none'">
+      <% } else { %>
+        <div class="company-logo-placeholder" style="width:56px;height:56px;font-size:1.5rem"><%= (walkin.companyName||'C').charAt(0).toUpperCase() %></div>
+      <% } %>
       <div class="job-card-title-block">
-        <h1 style="margin:0"><%= walkin.roleTitle %></h1>
+        <h2 style="margin:0"><%= walkin.roleTitle %></h2>
         <p class="job-company" style="font-size:1.1rem"><%= walkin.companyName %> · <%= walkin.city %><%= walkin.area ? ', '+walkin.area : '' %></p>
       </div>
       <% if(walkin.verified){ %><span class="verified-badge" title="Verified by Employee Table" style="font-size:1.5rem">✅ Verified</span><% } %>
@@ -80,4 +115,18 @@
     </div>
   <% } %>
 </main>
+
+<!-- ── ✅ SEO FIX: BREADCRUMBLIST SCHEMA ────────────────────────────────── -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.employeetable.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Walk-In Drives", "item": "https://www.employeetable.in/walkins" },
+    { "@type": "ListItem", "position": 3, "name": "<%= walkin.companyName %> <%= walkin.city %>", "item": "<%= canonical %>" }
+  ]
+}
+</script>
+
 <%- include('partials/footer') %>

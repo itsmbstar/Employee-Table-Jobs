@@ -23,11 +23,46 @@ var extraSchema = '<script type="application/ld+json">' + articleSchema + '<\/sc
       <button onclick="navigator.clipboard.writeText(window.location.href).then(()=>{this.textContent='✅ Copied!';setTimeout(()=>this.textContent='🔗 Copy Link',2000)})" class="btn btn-outline btn-sm">🔗 Copy Link</button>
     </div>
   </article>
+
+  <!-- ── ✅ SEO FIX: CURRENT WALK‑IN DRIVES FOR THIS CITY ──────────────── -->
+  <% 
+    // Detect city from post tags
+    var city = '';
+    if (post.tags) {
+      var tagsLower = post.tags.toLowerCase();
+      if (tagsLower.includes('mumbai')) city = 'Mumbai';
+      else if (tagsLower.includes('hyderabad')) city = 'Hyderabad';
+      else if (tagsLower.includes('bangalore')) city = 'Bangalore';
+      else if (tagsLower.includes('delhi')) city = 'Delhi';
+      else if (tagsLower.includes('pune')) city = 'Pune';
+      else if (tagsLower.includes('chennai')) city = 'Chennai';
+      else if (tagsLower.includes('noida')) city = 'Noida';
+    }
+    if (city && typeof walkins !== 'undefined') {
+      var cityWalkins = walkins.filter(w => w.city === city && !w.expired).slice(0, 5);
+    }
+  %>
+  <% if (city && cityWalkins && cityWalkins.length > 0) { %>
+    <section class="container section" style="padding: 1.5rem 0; border-top: 1px solid #e5e7eb; margin-top: 2rem;">
+      <h3>Current Walk‑In Drives in <%= city %></h3>
+      <ul style="list-style: none; padding: 0;">
+        <% cityWalkins.forEach(function(w) { %>
+          <li style="margin-bottom: 0.5rem;">
+            <a href="/walkins/<%= w.slug %>" style="font-weight: 500;"><%= w.companyName %> — <%= w.roleTitle %></a>
+            <span style="font-size: 0.9rem; color: #666; display: block;"><%= w.venueAddress %></span>
+          </li>
+        <% }); %>
+      </ul>
+      <a href="/walkins?city=<%= encodeURIComponent(city) %>" class="btn btn-outline btn-sm">View all <%= city %> walk‑ins →</a>
+    </section>
+  <% } %>
+
   <div class="blog-cta">
     <h2>Looking for verified jobs?</h2>
     <p>Browse 100% free, manually verified job listings across India. Updated daily.</p>
     <a href="/" class="btn btn-primary">Browse Jobs Now →</a>
   </div>
+
   <% if(related.length>0){ %>
     <section class="related-posts">
       <h2>More from the Blog</h2>

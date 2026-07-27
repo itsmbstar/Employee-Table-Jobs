@@ -756,7 +756,7 @@ app.get('/jobs-in-:cityslug', async (req, res) => {
   }
 });
 
-// ── WALK-IN DRIVES: Public Routes ──────────────────────────────────────────
+// ── WALK-IN DRIVES: Public Routes (FIXED) ──────────────────────────────────
 
 app.get('/walkins', async (req, res) => {
   try {
@@ -774,7 +774,7 @@ app.get('/walkins', async (req, res) => {
       );
     }
 
-    // Date filtering based on 'when' parameter
+    // Date filtering
     if (when === 'today') {
       const today = new Date();
       const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
@@ -786,9 +786,6 @@ app.get('/walkins', async (req, res) => {
       const tomorrowStart = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate()).getTime();
       const tomorrowEnd = tomorrowStart + 24 * 60 * 60 * 1000;
       active = active.filter(w => w.interviewDateStart >= tomorrowStart && w.interviewDateStart < tomorrowEnd);
-    } else if (when === 'weekend') {
-      // Implement weekend filter if needed
-      // For simplicity, we'll keep as is
     } else if (when === 'week') {
       const now = Date.now();
       const weekLater = now + 7 * 24 * 60 * 60 * 1000;
@@ -796,20 +793,27 @@ app.get('/walkins', async (req, res) => {
     }
 
     res.render('walkins', {
-      title: city ? `Walk-In Interviews in ${city} Today | Employee Table` : 'Verified Walk-In Interviews Today | Employee Table',
-      metaDescription: 'Daily verified walk-in interview drives across India — company, venue, HR contact, and documents required. 100% verified, no fake posts.',
+      title: city ? `Walk-In Interviews in ${city} Today — Verified Drives | Employee Table` : `Walk-In Interviews Today in India — 100+ Verified Drives | Employee Table`,
+      metaDescription: city ? 
+        `Find verified walk-in interviews in ${city} today. ${active.length} companies hiring including ${active.slice(0, 3).map(w => w.companyName).join(', ')}. No fees, no scams.` :
+        `Find verified walk-in interviews in India for ${active.length} companies including ${active.slice(0, 3).map(w => w.companyName).join(', ')}. No fees, no scams.`,
       canonical: DOMAIN + '/walkins' + (city ? '?city=' + encodeURIComponent(city) : '') + (q ? '&q=' + encodeURIComponent(q) : '') + (when ? '&when=' + encodeURIComponent(when) : ''),
       walkins: active,
       expiredWalkins,
       selectedCity: city || '',
       searchQuery: q || '',
       selectedWhen: when || '',
-      cities: CITIES
+      cities: CITIES,
+      ogImage: 'https://www.employeetable.in/img/logo.png'
     });
-  } catch (e) { console.error(e); res.status(500).send('Server error.'); }
+  } catch (e) {
+    console.error(e);
+    res.status(500).send('Server error.');
+  }
 });
 
-// ── ✅ SINGLE CORRECT WALK-IN DETAIL ROUTE ────────────────────────────────
+// ── ✅ FIXED WALK-IN DETAIL ROUTE ──────────────────────────────────────────
+
 app.get('/walkins/:slug', async (req, res) => {
   try {
     const walkin = await getWalkinBySlug(req.params.slug);
@@ -828,6 +832,7 @@ app.get('/walkins/:slug', async (req, res) => {
       companyName: walkin.companyName || 'Company',
       city: walkin.city || 'India',
       venueAddress: walkin.venueAddress || 'Not specified',
+      interviewDateStart: walkin.interviewDateStart || walkin.timestamp || Date.now(),
       interviewDateEnd: walkin.interviewDateEnd || walkin.timestamp || Date.now(),
       eligibility: walkin.eligibility || 'Any Graduate',
       documentsRequired: walkin.documentsRequired || 'Updated Resume, Aadhar Card, PAN Card, Passport size photo',
@@ -856,15 +861,20 @@ app.get('/walkins/:slug', async (req, res) => {
 
     const extraSchema = isExpired ? '' : `<script type="application/ld+json">${jobSchema}</script>`;
 
+    // ✅ SEO-OPTIMIZED TITLE AND META DESCRIPTION
+    const title = `Walk-In Drive: ${safeWalkin.companyName} ${safeWalkin.city} | ${safeWalkin.roleTitle} — Apply Free | Employee Table`;
+    const metaDescription = `Walk-in interview at ${safeWalkin.companyName} for ${safeWalkin.roleTitle} in ${safeWalkin.city} on ${new Date(safeWalkin.interviewDateStart).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. Verified venue, HR contact & documents required. 100% free, no scams.`;
+
     res.render('walkin-detail', {
-      title: `${safeWalkin.companyName} Walk-In Interview – ${safeWalkin.roleTitle} | ${safeWalkin.city} | Employee Table`,
-      metaDescription: `Walk-in interview at ${safeWalkin.companyName} for ${safeWalkin.roleTitle} in ${safeWalkin.city}. Verified venue, HR contact & documents required.`,
+      title: title,
+      metaDescription: metaDescription,
       canonical: `${DOMAIN}/walkins/${safeWalkin.slug}`,
       extraSchema: extraSchema,
       walkin: safeWalkin,
       related: related,
       isExpired: isExpired,
-      faqs: []   // ← Prevents template error
+      faqs: [],
+      ogImage: 'https://www.employeetable.in/img/logo.png'
     });
   } catch (e) {
     console.error('❌ Walk-in detail error:', e.message);
@@ -943,6 +953,7 @@ app.get('/blog/:slug', async (req, res) => {
     console.error(e); 
     res.status(500).send('Error loading post.'); 
   }
+  const walkins = await getWalkins();   // after fetching the post
 });
 
 // ── SITEMAP (CACHED) ───────────────────────────────────────────────────────
@@ -1007,9 +1018,25 @@ app.get('/sitemap.xml', async (req, res) => {
   }
 });
 
-// FORCE ROBOTS.TXT TO 404
-app.use('/robots.txt', (req, res) => {
-  res.status(404).send('Not Found');
+// ── ROBOTS.TXT ──────────────────────────────────────────────────────────────
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain');
+  res.send(`User-agent: *
+Allow: /
+Allow: /walkins/
+Allow: /walkins/*
+Allow: /job/
+Allow: /blog/
+Sitemap: ${DOMAIN}/sitemap.xml
+
+# Allow AI Crawlers
+User-agent: GPTBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: Google-Extended
+Allow: /
+`);
 });
 
 // ── SUBSCRIBE & CONTACT ────────────────────────────────────────────────────

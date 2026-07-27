@@ -809,6 +809,7 @@ app.get('/walkins', async (req, res) => {
   } catch (e) { console.error(e); res.status(500).send('Server error.'); }
 });
 
+// ── ✅ SINGLE CORRECT WALK-IN DETAIL ROUTE ────────────────────────────────
 app.get('/walkins/:slug', async (req, res) => {
   try {
     const walkin = await getWalkinBySlug(req.params.slug);
@@ -819,32 +820,57 @@ app.get('/walkins/:slug', async (req, res) => {
         canonical: DOMAIN + '/404'
       });
     }
-    const dateEnd = walkin.interviewDateEnd || walkin.timestamp;
+
+    // Ensure all required fields exist (safe fallbacks)
+    const safeWalkin = {
+      ...walkin,
+      roleTitle: walkin.roleTitle || 'Walk-In Drive',
+      companyName: walkin.companyName || 'Company',
+      city: walkin.city || 'India',
+      venueAddress: walkin.venueAddress || 'Not specified',
+      interviewDateEnd: walkin.interviewDateEnd || walkin.timestamp || Date.now(),
+      eligibility: walkin.eligibility || 'Any Graduate',
+      documentsRequired: walkin.documentsRequired || 'Updated Resume, Aadhar Card, PAN Card, Passport size photo',
+      slug: walkin.slug || req.params.slug
+    };
+
+    const dateEnd = safeWalkin.interviewDateEnd;
     const isExpired = Date.now() > dateEnd;
     const allWalkins = await getWalkins();
-    const related = allWalkins.filter(w => w.id !== walkin.id && !w.expired && w.city === walkin.city).slice(0, 3);
+    const related = allWalkins
+      .filter(w => w.id !== safeWalkin.id && !w.expired && w.city === safeWalkin.city)
+      .slice(0, 3);
 
     const jobSchema = JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'JobPosting',
-      title: `${walkin.roleTitle} - Walk-In Interview`,
-      description: `Walk-in interview for ${walkin.roleTitle} at ${walkin.companyName}, ${walkin.city}. Venue: ${walkin.venueAddress}. Eligibility: ${walkin.eligibility}. Documents required: ${walkin.documentsRequired}.`,
-      datePosted: new Date(walkin.timestamp).toISOString(),
+      title: `${safeWalkin.roleTitle} - Walk-In Interview`,
+      description: `Walk-in interview for ${safeWalkin.roleTitle} at ${safeWalkin.companyName}, ${safeWalkin.city}. Venue: ${safeWalkin.venueAddress}. Eligibility: ${safeWalkin.eligibility}. Documents required: ${safeWalkin.documentsRequired}.`,
+      datePosted: new Date(safeWalkin.timestamp).toISOString(),
       validThrough: new Date(dateEnd).toISOString(),
-      hiringOrganization: { '@type': 'Organization', name: walkin.companyName },
-      jobLocation: { '@type': 'Place', address: { '@type': 'PostalAddress', streetAddress: walkin.venueAddress, addressLocality: walkin.city, addressCountry: 'IN' } },
+      hiringOrganization: { '@type': 'Organization', name: safeWalkin.companyName },
+      jobLocation: { '@type': 'Place', address: { '@type': 'PostalAddress', streetAddress: safeWalkin.venueAddress, addressLocality: safeWalkin.city, addressCountry: 'IN' } },
       employmentType: 'FULL_TIME',
-      url: `${DOMAIN}/walkins/${walkin.slug}`
+      url: `${DOMAIN}/walkins/${safeWalkin.slug}`
     });
 
+    const extraSchema = isExpired ? '' : `<script type="application/ld+json">${jobSchema}</script>`;
+
     res.render('walkin-detail', {
-      title: `${walkin.companyName} Walk-In Interview – ${walkin.roleTitle} | ${walkin.city} | Employee Table`,
-      metaDescription: `Walk-in interview at ${walkin.companyName} for ${walkin.roleTitle} in ${walkin.city}. Verified venue, HR contact & documents required.`,
-      canonical: `${DOMAIN}/walkins/${walkin.slug}`,
-      extraSchema: isExpired ? '' : `<script type="application/ld+json">${jobSchema}</script>`,
-      walkin, related, isExpired
+      title: `${safeWalkin.companyName} Walk-In Interview – ${safeWalkin.roleTitle} | ${safeWalkin.city} | Employee Table`,
+      metaDescription: `Walk-in interview at ${safeWalkin.companyName} for ${safeWalkin.roleTitle} in ${safeWalkin.city}. Verified venue, HR contact & documents required.`,
+      canonical: `${DOMAIN}/walkins/${safeWalkin.slug}`,
+      extraSchema: extraSchema,
+      walkin: safeWalkin,
+      related: related,
+      isExpired: isExpired,
+      faqs: []   // ← Prevents template error
     });
-  } catch (e) { console.error(e); res.status(500).send('Error loading walk-in.'); }
+  } catch (e) {
+    console.error('❌ Walk-in detail error:', e.message);
+    console.error(e.stack);
+    res.status(500).send(`Error loading walk-in: ${e.message}`);
+  }
 });
 
 app.post('/walkins/:slug/click', async (req, res) => {

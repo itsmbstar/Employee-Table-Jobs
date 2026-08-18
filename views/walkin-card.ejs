@@ -1,38 +1,113 @@
-<article class="job-card" itemscope itemtype="https://schema.org/JobPosting">
-  <div class="job-card-top">
-    <div class="company-logo-placeholder"><%= (walkin.companyName||'C').charAt(0).toUpperCase() %></div>
-    <div class="job-card-title-block">
-      <h3 class="job-title" itemprop="title">
-        <a href="/walkins/<%= walkin.slug %>"><%= walkin.roleTitle %></a>
-      </h3>
-      <p class="job-company" itemprop="hiringOrganization" itemscope itemtype="https://schema.org/Organization">
-        <span itemprop="name"><%= walkin.companyName %></span>
-      </p>
+<%
+  /* ── compute status + countdown inside card ── */
+  var _now     = Date.now();
+  var _start   = walkin.interviewDateStart || walkin.timestamp || _now;
+  var _end     = walkin.interviewDateEnd   || _start;
+
+  /* midnight-of-today boundaries */
+  var _todayD  = new Date();
+  var _todayMS = new Date(_todayD.getFullYear(), _todayD.getMonth(), _todayD.getDate()).getTime();
+  var _tomorrowMS = _todayMS + 86400000;
+
+  var _isExpired  = _now > _end;
+  var _isToday    = !_isExpired && _start >= _todayMS && _start < _tomorrowMS;
+  var _isTomorrow = !_isExpired && !_isToday && _start >= _tomorrowMS && _start < _tomorrowMS + 86400000;
+  var _daysLeft   = Math.ceil((_start - _now) / 86400000);
+
+  var _status = _isExpired ? 'expired' : (_isToday ? 'today' : 'upcoming');
+
+  /* display label */
+  var _countdownLabel = '';
+  if (_isExpired)       { _countdownLabel = 'Ended'; }
+  else if (_isToday)    { _countdownLabel = 'TODAY'; }
+  else if (_isTomorrow) { _countdownLabel = 'Tomorrow'; }
+  else if (_daysLeft > 0){ _countdownLabel = 'In ' + _daysLeft + ' day' + (_daysLeft > 1 ? 's' : ''); }
+  else                  { _countdownLabel = 'Upcoming'; }
+
+  /* date block values */
+  var _startDate = new Date(_start);
+  var _dayNum    = _startDate.getDate();
+  var _monthStr  = _startDate.toLocaleDateString('en-IN', { month: 'short' });
+%>
+<article class="wk-card wk-card--<%= _status %>" itemscope itemtype="https://schema.org/JobPosting">
+  <div class="wk-card__date-block wk-date--<%= _status %>">
+    <span class="wk-date__day"><%= _dayNum %></span>
+    <span class="wk-date__month"><%= _monthStr %></span>
+    <% if (_isToday) { %>
+      <span class="wk-badge wk-badge--today">TODAY</span>
+    <% } else if (_isTomorrow) { %>
+      <span class="wk-badge wk-badge--soon">SOON</span>
+    <% } else if (!_isExpired) { %>
+      <span class="wk-badge wk-badge--upcoming"><%= _countdownLabel %></span>
+    <% } else { %>
+      <span class="wk-badge wk-badge--expired">ENDED</span>
+    <% } %>
+  </div>
+
+  <div class="wk-card__body">
+    <div class="wk-card__header">
+      <div class="wk-card__title-block">
+        <h3 class="wk-card__role" itemprop="title">
+          <a href="/walkins/<%= walkin.slug %>" aria-label="View details for <%= walkin.roleTitle %> walk-in at <%= walkin.companyName %>">
+            <%= walkin.roleTitle %>
+          </a>
+        </h3>
+        <p class="wk-card__company" itemprop="hiringOrganization" itemscope itemtype="https://schema.org/Organization">
+          <span itemprop="name"><%= walkin.companyName %></span>
+          <% if (walkin.verified) { %>
+            <span class="wk-verified" title="Verified by Employee Table" aria-label="Verified listing">✅</span>
+          <% } %>
+        </p>
+      </div>
     </div>
-    <% if(walkin.verified){ %><span class="verified-badge" title="Verified by Employee Table">✅</span><% } %>
-  </div>
-  <div class="job-meta">
-    <span itemprop="jobLocation" itemscope itemtype="https://schema.org/Place">
-      <span itemprop="address" itemscope itemtype="https://schema.org/PostalAddress">
-        📍 <span itemprop="addressLocality"><%= walkin.city %></span><%= walkin.area ? ', '+walkin.area : '' %>
+
+    <div class="wk-card__meta">
+      <span class="wk-meta-item" itemprop="jobLocation" itemscope itemtype="https://schema.org/Place">
+        <span itemprop="address" itemscope itemtype="https://schema.org/PostalAddress">
+          📍 <span itemprop="addressLocality"><%= walkin.city %></span><%= walkin.area ? ', ' + walkin.area : '' %>
+        </span>
       </span>
-    </span>
-    <span>🗓️ <%= new Date(walkin.interviewDateStart).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) %> – <%= new Date(walkin.interviewDateEnd).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) %></span>
-    <span>⏰ <%= walkin.interviewTime %></span>
-    <span>🎓 <%= walkin.eligibility %></span>
-    <% if(walkin.package){ %><span>💰 <%= walkin.package %></span><% } %>
-  </div>
-  <div class="job-footer">
-    <span class="job-time"><%= timeAgo(walkin.timestamp) %></span>
-    <span class="job-clicks">👥 <%= walkin.clicks||0 %> interested</span>
-  </div>
-  <div class="job-actions">
-    <a href="/walkins/<%= walkin.slug %>" class="btn btn-outline btn-sm">View Details</a>
-    <% if(walkin.hrContactPhone){ %>
-      <a href="tel:<%= walkin.hrContactPhone %>" class="btn btn-call btn-sm" onclick="fetch('/walkins/<%= walkin.slug %>/click',{method:'POST'})">📞 Call HR</a>
-    <% } %>
-    <% if(walkin.hrContactEmail){ %>
-      <a href="mailto:<%= walkin.hrContactEmail %>?subject=<%= encodeURIComponent('Application for '+walkin.roleTitle+' - Walk-In Drive') %>" class="btn btn-primary btn-sm">✉️ Email HR</a>
-    <% } %>
+      <span class="wk-meta-item">⏰ <%= walkin.interviewTime || '10:00 AM – 5:00 PM' %></span>
+      <span class="wk-meta-item">🎓 <%= walkin.eligibility || 'Any Graduate' %></span>
+      <% if (walkin.package) { %>
+        <span class="wk-meta-item">💰 <%= walkin.package %></span>
+      <% } %>
+    </div>
+
+    <div class="wk-card__venue">
+      📍 <span class="wk-venue-text"><%= (walkin.venueAddress || '').substring(0, 80) %><%= (walkin.venueAddress || '').length > 80 ? '…' : '' %></span>
+    </div>
+
+    <div class="wk-card__footer">
+      <span class="wk-countdown wk-countdown--<%= _status %>">
+        <% if (_isToday) { %>⚡ Walk-in is TODAY<% } else { %><%= _countdownLabel %><% } %>
+      </span>
+      <span class="wk-interest">👥 <%= walkin.clicks || 0 %> interested</span>
+    </div>
+
+    <div class="wk-card__actions">
+      <a href="/walkins/<%= walkin.slug %>"
+         class="btn btn-outline btn-sm"
+         aria-label="View full details for <%= walkin.companyName %> walk-in drive">
+        View Details
+      </a>
+      <% if (walkin.hrContactPhone) { %>
+        <a href="https://wa.me/<%= walkin.hrContactPhone.replace(/\D/g,'') %>?text=<%= encodeURIComponent('Hi, I am interested in the walk-in drive for ' + walkin.roleTitle + ' at ' + walkin.companyName + ' in ' + walkin.city + ' on ' + new Date(walkin.interviewDateStart).toLocaleDateString('en-IN') + '. I found this on Employee Table.') %>"
+           target="_blank"
+           rel="noopener noreferrer"
+           class="btn btn-whatsapp btn-sm"
+           aria-label="WhatsApp HR for <%= walkin.roleTitle %> at <%= walkin.companyName %>"
+           onclick="fetch('/walkins/<%= walkin.slug %>/click',{method:'POST'})">
+          💬 WhatsApp HR
+        </a>
+      <% } %>
+      <% if (walkin.hrContactPhone && !walkin.hrContactPhone.startsWith('https')) { %>
+        <a href="tel:<%= walkin.hrContactPhone %>"
+           class="btn btn-call btn-sm"
+           aria-label="Call HR for <%= walkin.companyName %> walk-in">
+          📞 Call
+        </a>
+      <% } %>
+    </div>
   </div>
 </article>

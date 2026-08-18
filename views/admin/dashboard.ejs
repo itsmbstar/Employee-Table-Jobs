@@ -16,6 +16,14 @@
 </aside>
 <main class="admin-main">
 
+  <% if (success && success.length > 0) { %>
+    <div class="flash flash-success" style="position:static;margin:0 0 1rem"><%= success[0] %></div>
+  <% } %>
+  <% if (error && error.length > 0) { %>
+    <div class="flash flash-error" style="position:static;margin:0 0 1rem"><%= error[0] %></div>
+  <% } %>
+
+  <!-- STATS TAB -->
   <section id="tab-stats" class="admin-tab">
     <h1>Dashboard</h1>
     <div class="admin-stats">
@@ -29,33 +37,65 @@
     </div>
   </section>
 
+  <!-- JOBS TAB — with live search -->
   <section id="tab-jobs" class="admin-tab hidden">
-    <h1>Manage Jobs (<%= jobs.length %>)</h1>
+    <div class="admin-tab-header">
+      <h1>Manage Jobs (<%= jobs.length %>)</h1>
+      <button class="btn btn-primary btn-sm" onclick="showTab('addjob')">➕ Add Job</button>
+    </div>
+
+    <!-- FIX: Search bar for jobs -->
+    <div class="admin-search-bar">
+      <input
+        type="text"
+        id="jobSearchInput"
+        class="form-input admin-search-input"
+        placeholder="🔍 Search by role, company, location, type…"
+        oninput="filterTable('jobSearchInput','jobTableBody','jobCountLabel')"
+        aria-label="Search jobs"
+      >
+      <span class="admin-search-count" id="jobCountLabel"><%= jobs.length %> jobs</span>
+    </div>
+
     <div class="admin-table-wrap">
       <table class="admin-table">
-        <thead><tr><th>Role</th><th>Company</th><th>Location</th><th>Type</th><th>Clicks</th><th>Views</th><th>Actions</th></tr></thead>
-        <tbody>
-          <% jobs.forEach(job=>{ %>
-            <tr>
-              <td><a href="/job/<%= job.slug %>" target="_blank"><%= job.jobRole %></a></td>
+        <thead>
+          <tr>
+            <th>Role</th>
+            <th>Company</th>
+            <th>Location</th>
+            <th>Type</th>
+            <th>Clicks</th>
+            <th>Views</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="jobTableBody">
+          <% jobs.forEach(function(job){ %>
+            <tr
+              data-search="<%= (job.jobRole+' '+job.companyName+' '+job.workLocation+' '+job.jobType).toLowerCase() %>"
+            >
+              <td><a href="/job/<%= job.slug %>" target="_blank" rel="noopener"><%= job.jobRole %></a></td>
               <td><%= job.companyName %></td>
               <td><%= job.workLocation %></td>
               <td><%= job.jobType %></td>
               <td><%= job.clicks||0 %></td>
               <td><%= views['job_'+job.id]||0 %></td>
               <td class="admin-actions">
-                <button class="btn btn-sm btn-outline" onclick="editJob('<%= job.id %>')">✏️ Edit</button>
-                <form method="POST" action="/admin/job/delete/<%= job.id %>" style="display:inline" onsubmit="return confirm('Delete this job?')">
-                  <button type="submit" class="btn btn-sm btn-danger">🗑</button>
+                <button class="btn btn-sm btn-outline" onclick="editJob('<%= job.id %>')" aria-label="Edit <%= job.jobRole %>">✏️ Edit</button>
+                <form method="POST" action="/admin/job/delete/<%= job.id %>" style="display:inline" onsubmit="return confirm('Delete this job permanently?')">
+                  <button type="submit" class="btn btn-sm btn-danger" aria-label="Delete <%= job.jobRole %>">🗑</button>
                 </form>
               </td>
             </tr>
           <% }) %>
         </tbody>
       </table>
+      <p class="admin-no-results hidden" id="jobNoResults">No jobs match your search.</p>
     </div>
   </section>
 
+  <!-- ADD / EDIT JOB TAB -->
   <section id="tab-addjob" class="admin-tab hidden">
     <h1 id="job-form-title">➕ Add New Job</h1>
     <form method="POST" id="jobForm" action="/admin/job/add" enctype="multipart/form-data" class="admin-form">
@@ -66,12 +106,12 @@
       <div class="form-row">
         <div class="form-group"><label>Work Location *</label>
           <select name="workLocation" id="f-workLocation" class="form-input">
-            <% cities.forEach(c=>{ %><option value="<%= c.name %>"><%= c.name %></option><% }) %>
+            <% cities.forEach(function(c){ %><option value="<%= c.name %>"><%= c.name %></option><% }) %>
           </select>
         </div>
         <div class="form-group"><label>Job Type *</label>
           <select name="jobType" id="f-jobType" class="form-input">
-            <% ['Full-Time','Internship','Part-Time','Remote','Contract'].forEach(t=>{ %><option value="<%= t %>"><%= t %></option><% }) %>
+            <% ['Full-Time','Internship','Part-Time','Remote','Contract'].forEach(function(t){ %><option value="<%= t %>"><%= t %></option><% }) %>
           </select>
         </div>
       </div>
@@ -85,20 +125,18 @@
       </div>
       <div class="form-group"><label>Skills (comma separated)</label><input type="text" name="skills" id="f-skills" class="form-input" placeholder="e.g. Python, Java, SQL"></div>
       <div class="form-group">
-  <label>Job Description (important for SEO &amp; Google for Jobs)</label>
-  <textarea name="description" id="f-description" class="form-input" rows="5" placeholder="Describe the role, responsibilities, and requirements..."></textarea>
-  <small style="display:block; margin-top:5px; color:#666; font-size:13px;">
-    💡 <strong>Pro Tip:</strong> Use &lt;p&gt; for paragraphs, &lt;ul&gt; &lt;li&gt; for bullet points, &lt;strong&gt; for bold text. This makes your job description clean and professional.
-  </small>
-</div>
-      <div class="form-group"><label>Company Logo URL (paste HTTP URL only — no base64)</label><input type="url" name="companyLogo" id="f-companyLogo" class="form-input" placeholder="https://..."></div>
+        <label>Job Description (important for SEO &amp; Google Jobs)</label>
+        <textarea name="description" id="f-description" class="form-input" rows="5" placeholder="Describe the role, responsibilities, and requirements..."></textarea>
+        <small style="display:block;margin-top:5px;color:#666;font-size:13px;">💡 Use &lt;p&gt; for paragraphs, &lt;ul&gt;&lt;li&gt; for bullets, &lt;strong&gt; for bold.</small>
+      </div>
+      <div class="form-group"><label>Company Logo URL</label><input type="url" name="companyLogo" id="f-companyLogo" class="form-input" placeholder="https://..."></div>
       <div class="form-group"><label>OR Upload Logo File</label><input type="file" name="companyLogoFile" accept="image/*" class="form-input"></div>
       <div class="admin-contact-box">
         <p class="contact-box-title">💬 Direct Contact Buttons (Optional)</p>
         <p class="contact-box-sub">Leave blank to hide. Adds WhatsApp/Call buttons on job card.</p>
         <div class="form-row">
-          <div class="form-group"><label>WhatsApp Number (with country code)</label><input type="tel" name="whatsappNumber" id="f-whatsappNumber" class="form-input" placeholder="+919619748275"></div>
-          <div class="form-group"><label>Call Number (with country code)</label><input type="tel" name="callNumber" id="f-callNumber" class="form-input" placeholder="+919619748275"></div>
+          <div class="form-group"><label>WhatsApp Number</label><input type="tel" name="whatsappNumber" id="f-whatsappNumber" class="form-input" placeholder="+919619748275"></div>
+          <div class="form-group"><label>Call Number</label><input type="tel" name="callNumber" id="f-callNumber" class="form-input" placeholder="+919619748275"></div>
         </div>
       </div>
       <div class="form-group form-check">
@@ -112,33 +150,68 @@
     </form>
   </section>
 
+  <!-- WALK-INS TAB — with live search -->
   <section id="tab-walkins" class="admin-tab hidden">
-    <h1>Manage Walk-In Drives (<%= walkins.length %>)</h1>
+    <div class="admin-tab-header">
+      <h1>Manage Walk-In Drives (<%= walkins.length %>)</h1>
+      <button class="btn btn-primary btn-sm" onclick="showTab('addwalkin')">➕ Add Walk-In</button>
+    </div>
+
+    <!-- FIX: Search bar for walkins -->
+    <div class="admin-search-bar">
+      <input
+        type="text"
+        id="walkinSearchInput"
+        class="form-input admin-search-input"
+        placeholder="🔍 Search by company, role, city…"
+        oninput="filterTable('walkinSearchInput','walkinTableBody','walkinCountLabel')"
+        aria-label="Search walk-ins"
+      >
+      <span class="admin-search-count" id="walkinCountLabel"><%= walkins.length %> drives</span>
+    </div>
+
     <div class="admin-table-wrap">
       <table class="admin-table">
-        <thead><tr><th>Company / Role</th><th>City</th><th>Dates</th><th>HR Contact</th><th>Status</th><th>Clicks</th><th>Actions</th></tr></thead>
-        <tbody>
-          <% walkins.forEach(w=>{ %>
-            <tr>
-              <td><a href="/walkins/<%= w.slug %>" target="_blank"><%= w.companyName %> — <%= w.roleTitle %></a></td>
+        <thead>
+          <tr>
+            <th>Company / Role</th>
+            <th>City</th>
+            <th>Dates</th>
+            <th>HR Contact</th>
+            <th>Status</th>
+            <th>Clicks</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="walkinTableBody">
+          <% walkins.forEach(function(w){ %>
+            <tr
+              data-search="<%= (w.companyName+' '+w.roleTitle+' '+w.city).toLowerCase() %>"
+            >
+              <td><a href="/walkins/<%= w.slug %>" target="_blank" rel="noopener"><%= w.companyName %> — <%= w.roleTitle %></a></td>
               <td><%= w.city %></td>
-              <td><%= new Date(w.interviewDateStart).toLocaleDateString('en-IN') %> – <%= new Date(w.interviewDateEnd).toLocaleDateString('en-IN') %></td>
+              <td>
+                <%= new Date(w.interviewDateStart).toLocaleDateString('en-IN') %>
+                – <%= new Date(w.interviewDateEnd).toLocaleDateString('en-IN') %>
+              </td>
               <td><%= w.hrContactPhone || w.hrContactEmail || '—' %></td>
-              <td><%= w.expired ? '⏳ Expired' : '✅ Active' %></td>
+              <td><span class="admin-status-badge <%= w.expired ? 'badge-expired' : 'badge-active' %>"><%= w.expired ? '⏳ Expired' : '✅ Active' %></span></td>
               <td><%= w.clicks||0 %></td>
               <td class="admin-actions">
-                <button class="btn btn-sm btn-outline" onclick="editWalkin('<%= w.id %>')">✏️ Edit</button>
-                <form method="POST" action="/admin/walkin/delete/<%= w.id %>" style="display:inline" onsubmit="return confirm('Delete this walk-in?')">
-                  <button type="submit" class="btn btn-sm btn-danger">🗑</button>
+                <button class="btn btn-sm btn-outline" onclick="editWalkin('<%= w.id %>')" aria-label="Edit <%= w.companyName %> walk-in">✏️ Edit</button>
+                <form method="POST" action="/admin/walkin/delete/<%= w.id %>" style="display:inline" onsubmit="return confirm('Delete this walk-in permanently?')">
+                  <button type="submit" class="btn btn-sm btn-danger" aria-label="Delete walk-in">🗑</button>
                 </form>
               </td>
             </tr>
           <% }) %>
         </tbody>
       </table>
+      <p class="admin-no-results hidden" id="walkinNoResults">No walk-ins match your search.</p>
     </div>
   </section>
 
+  <!-- ADD / EDIT WALK-IN TAB -->
   <section id="tab-addwalkin" class="admin-tab hidden">
     <h1 id="walkin-form-title">➕ Add New Walk-In Drive</h1>
     <form method="POST" id="walkinForm" action="/admin/walkin/add" class="admin-form">
@@ -149,7 +222,7 @@
       <div class="form-row">
         <div class="form-group"><label>City *</label>
           <select name="city" id="w-city" class="form-input">
-            <% cities.forEach(c=>{ %><option value="<%= c.name %>"><%= c.name %></option><% }) %>
+            <% cities.forEach(function(c){ %><option value="<%= c.name %>"><%= c.name %></option><% }) %>
           </select>
         </div>
         <div class="form-group"><label>Area / Locality</label><input type="text" name="area" id="w-area" class="form-input" placeholder="e.g. Andheri East"></div>
@@ -160,11 +233,11 @@
         <div class="form-group"><label>Interview End Date *</label><input type="date" name="interviewDateEnd" id="w-interviewDateEnd" required class="form-input"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Interview Time</label><input type="text" name="interviewTime" id="w-interviewTime" class="form-input" placeholder="e.g. 10:00 AM - 5:00 PM"></div>
-        <div class="form-group"><label>Package / Salary</label><input type="text" name="package" id="w-package" class="form-input" placeholder="e.g. 15,000 - 25,000/month"></div>
+        <div class="form-group"><label>Interview Time</label><input type="text" name="interviewTime" id="w-interviewTime" class="form-input" placeholder="e.g. 10:00 AM – 5:00 PM"></div>
+        <div class="form-group"><label>Package / Salary</label><input type="text" name="package" id="w-package" class="form-input" placeholder="e.g. 15,000 – 25,000/month"></div>
       </div>
       <div class="admin-contact-box">
-        <p class="contact-box-title">📞 HR Contact (at least one required)</p>
+        <p class="contact-box-title">📞 HR Contact (at least one recommended)</p>
         <div class="form-row">
           <div class="form-group"><label>HR Phone / WhatsApp</label><input type="tel" name="hrContactPhone" id="w-hrContactPhone" class="form-input" placeholder="+919876543210"></div>
           <div class="form-group"><label>HR Email</label><input type="email" name="hrContactEmail" id="w-hrContactEmail" class="form-input" placeholder="hr@company.com"></div>
@@ -183,31 +256,52 @@
     </form>
   </section>
 
+  <!-- BLOG TAB — with live search -->
   <section id="tab-blog" class="admin-tab hidden">
-    <h1>Manage Blog Posts (<%= posts.length %>)</h1>
+    <div class="admin-tab-header">
+      <h1>Manage Blog Posts (<%= posts.length %>)</h1>
+      <button class="btn btn-primary btn-sm" onclick="showTab('addblog')">➕ Add Post</button>
+    </div>
+
+    <div class="admin-search-bar">
+      <input
+        type="text"
+        id="blogSearchInput"
+        class="form-input admin-search-input"
+        placeholder="🔍 Search by title or slug…"
+        oninput="filterTable('blogSearchInput','blogTableBody','blogCountLabel')"
+        aria-label="Search blog posts"
+      >
+      <span class="admin-search-count" id="blogCountLabel"><%= posts.length %> posts</span>
+    </div>
+
     <div class="admin-table-wrap">
       <table class="admin-table">
-        <thead><tr><th>Title</th><th>Slug</th><th>Views</th><th>Posted</th><th>Actions</th></tr></thead>
-        <tbody>
-          <% posts.forEach(post=>{ %>
-            <tr>
-              <td><a href="/blog/<%= post.slug %>" target="_blank"><%= post.title %></a></td>
+        <thead>
+          <tr><th>Title</th><th>Slug</th><th>Views</th><th>Posted</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="blogTableBody">
+          <% posts.forEach(function(post){ %>
+            <tr data-search="<%= (post.title+' '+post.slug).toLowerCase() %>">
+              <td><a href="/blog/<%= post.slug %>" target="_blank" rel="noopener"><%= post.title %></a></td>
               <td><code><%= post.slug %></code></td>
               <td><%= views['blog_'+post.id]||0 %></td>
               <td><%= timeAgo(post.timestamp) %></td>
               <td class="admin-actions">
-                <button class="btn btn-sm btn-outline" onclick="editPost('<%= post.id %>')">✏️ Edit</button>
-                <form method="POST" action="/admin/blog/delete/<%= post.id %>" style="display:inline" onsubmit="return confirm('Delete this post?')">
-                  <button type="submit" class="btn btn-sm btn-danger">🗑</button>
+                <button class="btn btn-sm btn-outline" onclick="editPost('<%= post.id %>')" aria-label="Edit <%= post.title %>">✏️ Edit</button>
+                <form method="POST" action="/admin/blog/delete/<%= post.id %>" style="display:inline" onsubmit="return confirm('Delete this post permanently?')">
+                  <button type="submit" class="btn btn-sm btn-danger" aria-label="Delete post">🗑</button>
                 </form>
               </td>
             </tr>
           <% }) %>
         </tbody>
       </table>
+      <p class="admin-no-results hidden" id="blogNoResults">No posts match your search.</p>
     </div>
   </section>
 
+  <!-- ADD / EDIT BLOG TAB -->
   <section id="tab-addblog" class="admin-tab hidden">
     <h1 id="post-form-title">➕ Add Blog Post</h1>
     <form method="POST" id="postForm" action="/admin/blog/add" enctype="multipart/form-data" class="admin-form">
@@ -229,13 +323,14 @@
     </form>
   </section>
 
+  <!-- SUBSCRIBERS TAB -->
   <section id="tab-subs" class="admin-tab hidden">
     <h1>Email Subscribers (<%= subs.length %>)</h1>
     <div class="admin-table-wrap">
       <table class="admin-table">
         <thead><tr><th>Name</th><th>Email</th><th>City</th><th>Subscribed</th></tr></thead>
         <tbody>
-          <% subs.forEach(s=>{ %>
+          <% subs.forEach(function(s){ %>
             <tr>
               <td><%= s.name %></td>
               <td><a href="mailto:<%= s.email %>"><%= s.email %></a></td>
@@ -251,39 +346,223 @@
 </main>
 </div>
 
+<style>
+.admin-tab-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.admin-tab-header h1 { margin: 0; }
+
+/* Search bar */
+.admin-search-bar {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: 1rem;
+}
+.admin-search-input {
+  flex: 1;
+  max-width: 420px;
+  padding: .55rem .9rem;
+  font-size: .9rem;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.admin-search-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+.admin-search-count {
+  font-size: .82rem;
+  color: #6b7280;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.admin-no-results {
+  text-align: center;
+  padding: 2rem;
+  color: #9ca3af;
+  font-size: .9rem;
+}
+
+/* Status badges */
+.admin-status-badge {
+  display: inline-block;
+  padding: .2rem .55rem;
+  border-radius: 20px;
+  font-size: .75rem;
+  font-weight: 600;
+}
+.badge-active  { background: #dcfce7; color: #166534; }
+.badge-expired { background: #f3f4f6; color: #6b7280; }
+</style>
+
 <script>
-function showTab(n){document.querySelectorAll('.admin-tab').forEach(t=>t.classList.add('hidden'));const el=document.getElementById('tab-'+n);if(el)el.classList.remove('hidden');}
+/* ── Tab switching ────────────────────────────────────────── */
+function showTab(n) {
+  document.querySelectorAll('.admin-tab').forEach(function(t) { t.classList.add('hidden'); });
+  var el = document.getElementById('tab-' + n);
+  if (el) el.classList.remove('hidden');
+}
 showTab('stats');
-async function editJob(id){
-  const j=await fetch('/admin/job/'+id+'/json').then(r=>r.json());
-  document.getElementById('job-form-title').textContent='✏️ Edit Job';
-  document.getElementById('jobForm').action='/admin/job/edit/'+id;
-  document.getElementById('jobSubmitBtn').textContent='💾 Save Changes';
-  ['jobRole','companyName','workLocation','jobType','experience','qualification','package','applyLink','skills','description','companyLogo','whatsappNumber','callNumber'].forEach(k=>{const el=document.getElementById('f-'+k);if(el)el.value=j[k]||'';});
-  const v=document.getElementById('f-verified');if(v)v.checked=j.verified!==false;
-  showTab('addjob');window.scrollTo(0,0);
+
+/* ── FIX: Live search filter for any table ───────────────── */
+function filterTable(inputId, tbodyId, countLabelId) {
+  var q    = document.getElementById(inputId).value.toLowerCase().trim();
+  var rows = document.getElementById(tbodyId).querySelectorAll('tr');
+  var visible = 0;
+
+  rows.forEach(function(row) {
+    var text = row.getAttribute('data-search') || '';
+    var show = !q || text.includes(q);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+
+  /* update count label */
+  var label = document.getElementById(countLabelId);
+  if (label) label.textContent = visible + ' result' + (visible !== 1 ? 's' : '');
+
+  /* show/hide empty message */
+  var noResults = document.getElementById(tbodyId.replace('TableBody', 'NoResults'));
+  if (noResults) noResults.classList.toggle('hidden', visible > 0);
 }
-async function editPost(id){
-  const p=await fetch('/admin/blog/'+id+'/json').then(r=>r.json());
-  document.getElementById('post-form-title').textContent='✏️ Edit Post';
-  document.getElementById('postForm').action='/admin/blog/edit/'+id;
-  document.getElementById('postSubmitBtn').textContent='💾 Save Changes';
-  ['title','excerpt','content','coverImage','tags','metaTitle','metaDescription'].forEach(k=>{const el=document.getElementById('p-'+k);if(el)el.value=p[k]||'';});
-  showTab('addblog');window.scrollTo(0,0);
+
+/* ── Helper: set select value ────────────────────────────── */
+function setSelectValue(id, value) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  for (var i = 0; i < el.options.length; i++) {
+    if (el.options[i].value === value) {
+      el.selectedIndex = i;
+      break;
+    }
+  }
 }
-async function editWalkin(id){
-  const w=await fetch('/admin/walkin/'+id+'/json').then(r=>r.json());
-  document.getElementById('walkin-form-title').textContent='✏️ Edit Walk-In';
-  document.getElementById('walkinForm').action='/admin/walkin/edit/'+id;
-  document.getElementById('walkinSubmitBtn').textContent='💾 Save Changes';
-  ['companyName','roleTitle','city','area','venueAddress','interviewTime','package','hrContactPhone','hrContactEmail','eligibility','documentsRequired'].forEach(k=>{const el=document.getElementById('w-'+k);if(el)el.value=w[k]||'';});
-  if(w.interviewDateStart) document.getElementById('w-interviewDateStart').value=new Date(w.interviewDateStart).toISOString().split('T')[0];
-  if(w.interviewDateEnd) document.getElementById('w-interviewDateEnd').value=new Date(w.interviewDateEnd).toISOString().split('T')[0];
-  const v=document.getElementById('w-verified');if(v)v.checked=w.verified!==false;
-  showTab('walkins');window.scrollTo(0,0);
+
+/* ── Edit Job ─────────────────────────────────────────────── */
+async function editJob(id) {
+  try {
+    var j = await fetch('/admin/job/' + id + '/json').then(function(r) { return r.json(); });
+    document.getElementById('job-form-title').textContent = '✏️ Edit Job';
+    document.getElementById('jobForm').action = '/admin/job/edit/' + id;
+    document.getElementById('jobSubmitBtn').textContent = '💾 Save Changes';
+
+    var textFields = ['jobRole','companyName','experience','qualification','package',
+                      'applyLink','skills','description','companyLogo','whatsappNumber','callNumber'];
+    textFields.forEach(function(k) {
+      var el = document.getElementById('f-' + k);
+      if (el) el.value = j[k] || '';
+    });
+
+    /* selects need special handling */
+    setSelectValue('f-workLocation', j.workLocation || '');
+    setSelectValue('f-jobType', j.jobType || 'Full-Time');
+
+    var v = document.getElementById('f-verified');
+    if (v) v.checked = j.verified !== false;
+
+    showTab('addjob');
+    window.scrollTo(0, 0);
+  } catch (e) {
+    alert('Failed to load job data. Please try again.');
+    console.error('editJob error:', e);
+  }
 }
-function resetJobForm(){document.getElementById('job-form-title').textContent='➕ Add New Job';document.getElementById('jobForm').reset();document.getElementById('jobForm').action='/admin/job/add';document.getElementById('jobSubmitBtn').textContent='➕ Add Job';showTab('jobs');}
-function resetPostForm(){document.getElementById('post-form-title').textContent='➕ Add Blog Post';document.getElementById('postForm').reset();document.getElementById('postForm').action='/admin/blog/add';document.getElementById('postSubmitBtn').textContent='➕ Publish Post';showTab('blog');}
-function resetWalkinForm(){document.getElementById('walkin-form-title').textContent='➕ Add New Walk-In Drive';document.getElementById('walkinForm').reset();document.getElementById('walkinForm').action='/admin/walkin/add';document.getElementById('walkinSubmitBtn').textContent='➕ Add Walk-In';showTab('walkins');}
+
+/* ── FIX: Edit Walkin — correct tab + select handling ────── */
+async function editWalkin(id) {
+  try {
+    var w = await fetch('/admin/walkin/' + id + '/json').then(function(r) { return r.json(); });
+
+    document.getElementById('walkin-form-title').textContent = '✏️ Edit Walk-In Drive';
+    document.getElementById('walkinForm').action = '/admin/walkin/edit/' + id;
+    document.getElementById('walkinSubmitBtn').textContent = '💾 Save Changes';
+
+    /* text / textarea fields */
+    var textFields = ['companyName','roleTitle','area','venueAddress',
+                      'interviewTime','package','hrContactPhone','hrContactEmail',
+                      'eligibility','documentsRequired'];
+    textFields.forEach(function(k) {
+      var el = document.getElementById('w-' + k);
+      if (el) el.value = w[k] || '';
+    });
+
+    /* FIX: city is a <select> — use setSelectValue */
+    setSelectValue('w-city', w.city || '');
+
+    /* FIX: convert Unix ms timestamps to YYYY-MM-DD for date inputs */
+    if (w.interviewDateStart) {
+      document.getElementById('w-interviewDateStart').value =
+        new Date(w.interviewDateStart).toISOString().split('T')[0];
+    }
+    if (w.interviewDateEnd) {
+      document.getElementById('w-interviewDateEnd').value =
+        new Date(w.interviewDateEnd).toISOString().split('T')[0];
+    }
+
+    var v = document.getElementById('w-verified');
+    if (v) v.checked = w.verified !== false;
+
+    /* FIX: navigate to the ADD WALK-IN tab (the form tab), not the list tab */
+    showTab('addwalkin');
+    window.scrollTo(0, 0);
+
+  } catch (e) {
+    alert('Failed to load walk-in data. Please try again.');
+    console.error('editWalkin error:', e);
+  }
+}
+
+/* ── Edit Blog Post ───────────────────────────────────────── */
+async function editPost(id) {
+  try {
+    var p = await fetch('/admin/blog/' + id + '/json').then(function(r) { return r.json(); });
+    document.getElementById('post-form-title').textContent = '✏️ Edit Post';
+    document.getElementById('postForm').action = '/admin/blog/edit/' + id;
+    document.getElementById('postSubmitBtn').textContent = '💾 Save Changes';
+
+    ['title','excerpt','content','coverImage','tags','metaTitle','metaDescription'].forEach(function(k) {
+      var el = document.getElementById('p-' + k);
+      if (el) el.value = p[k] || '';
+    });
+
+    showTab('addblog');
+    window.scrollTo(0, 0);
+  } catch (e) {
+    alert('Failed to load post data. Please try again.');
+    console.error('editPost error:', e);
+  }
+}
+
+/* ── Reset forms ─────────────────────────────────────────── */
+function resetJobForm() {
+  document.getElementById('job-form-title').textContent = '➕ Add New Job';
+  document.getElementById('jobForm').reset();
+  document.getElementById('jobForm').action = '/admin/job/add';
+  document.getElementById('jobSubmitBtn').textContent = '➕ Add Job';
+  showTab('jobs');
+}
+
+function resetWalkinForm() {
+  document.getElementById('walkin-form-title').textContent = '➕ Add New Walk-In Drive';
+  document.getElementById('walkinForm').reset();
+  document.getElementById('walkinForm').action = '/admin/walkin/add';
+  document.getElementById('walkinSubmitBtn').textContent = '➕ Add Walk-In';
+  showTab('walkins');
+}
+
+function resetPostForm() {
+  document.getElementById('post-form-title').textContent = '➕ Add Blog Post';
+  document.getElementById('postForm').reset();
+  document.getElementById('postForm').action = '/admin/blog/add';
+  document.getElementById('postSubmitBtn').textContent = '➕ Publish Post';
+  showTab('blog');
+}
 </script>
+
 <%- include('../partials/footer') %>

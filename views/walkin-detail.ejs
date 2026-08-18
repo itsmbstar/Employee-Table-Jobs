@@ -1,133 +1,368 @@
 <%- include('partials/header') %>
 
-<!-- ── ✅ SEO FIXES: CANONICAL, OG, TWITTER, HREFLANG, NOINDEX ────────────── -->
-<link rel="canonical" href="<%= canonical %>">
+<%
+  var _now    = Date.now();
+  var _start  = walkin.interviewDateStart || walkin.timestamp || _now;
+  var _end    = walkin.interviewDateEnd   || _start;
+  var _isExpired = _now > _end;
 
-<meta property="og:type" content="article">
-<meta property="og:title" content="<%= title %>">
-<meta property="og:description" content="<%= metaDescription %>">
-<meta property="og:url" content="<%= canonical %>">
-<meta property="og:image" content="<%= ogImage || 'https://www.employeetable.in/img/og-image.jpg' %>">
-<meta property="og:site_name" content="Employee Table">
-<meta property="og:locale" content="en_IN">
+  var _todayMS    = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime();
+  var _tomorrowMS = _todayMS + 86400000;
+  var _isToday    = !_isExpired && _start >= _todayMS && _start < _tomorrowMS;
+  var _daysLeft   = Math.ceil((_start - _now) / 86400000);
 
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="<%= title %>">
-<meta name="twitter:description" content="<%= metaDescription %>">
-<meta name="twitter:image" content="<%= ogImage || 'https://www.employeetable.in/img/og-image.jpg' %>">
+  var _countdownText = '';
+  if (_isExpired)       { _countdownText = 'This walk-in has ended'; }
+  else if (_isToday)    { _countdownText = '⚡ Walk-in is TODAY'; }
+  else if (_daysLeft === 1){ _countdownText = '🔔 Walk-in is TOMORROW'; }
+  else if (_daysLeft > 1)  { _countdownText = '🗓️ Walk-in in ' + _daysLeft + ' days'; }
+  else                  { _countdownText = 'Upcoming'; }
 
-<link rel="alternate" hreflang="en-IN" href="<%= canonical %>">
+  /* Google Maps link */
+  var _mapsQuery = encodeURIComponent((walkin.venueAddress || '') + ' ' + (walkin.city || ''));
+  var _mapsUrl   = 'https://www.google.com/maps/search/?api=1&query=' + _mapsQuery;
 
-<% if(isExpired) { %>
-  <meta name="robots" content="noindex, nofollow">
+  /* .ics calendar values */
+  function _icsDate(ts) {
+    var d = new Date(ts);
+    return d.getUTCFullYear() +
+      String(d.getUTCMonth()+1).padStart(2,'0') +
+      String(d.getUTCDate()).padStart(2,'0') + 'T' +
+      String(d.getUTCHours()).padStart(2,'0') +
+      String(d.getUTCMinutes()).padStart(2,'0') + '00Z';
+  }
+  var _icsStart = _icsDate(_start);
+  var _icsEnd   = _icsDate(_end + 3600000);
+  var _icsTitle = encodeURIComponent('Walk-In Drive: ' + (walkin.roleTitle||'') + ' at ' + (walkin.companyName||''));
+  var _icsLoc   = encodeURIComponent(walkin.venueAddress || walkin.city || '');
+  var _icsDesc  = encodeURIComponent('Walk-in interview at ' + (walkin.companyName||'') + '. Eligibility: ' + (walkin.eligibility||'Any Graduate') + '. Documents: ' + (walkin.documentsRequired||'Resume, ID proof') + '. Source: Employee Table - employeetable.in');
+  var _icsData  = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nSUMMARY:' + decodeURIComponent(_icsTitle) + '\r\nDTSTART:' + _icsStart + '\r\nDTEND:' + _icsEnd + '\r\nLOCATION:' + decodeURIComponent(_icsLoc) + '\r\nDESCRIPTION:' + decodeURIComponent(_icsDesc) + '\r\nEND:VEVENT\r\nEND:VCALENDAR';
+  var _icsHref  = 'data:text/calendar;charset=utf8,' + encodeURIComponent(_icsData);
+
+  /* Event schema */
+  var _eventSchema = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'Event',
+    name: 'Walk-In Drive: ' + (walkin.roleTitle||'') + ' at ' + (walkin.companyName||''),
+    description: 'Walk-in interview for ' + (walkin.roleTitle||'') + ' at ' + (walkin.companyName||'') + ' in ' + (walkin.city||'') + '. Eligibility: ' + (walkin.eligibility||'Any Graduate') + '. Documents: ' + (walkin.documentsRequired||'Resume, ID proof'),
+    startDate: new Date(_start).toISOString(),
+    endDate: new Date(_end).toISOString(),
+    eventStatus: _isExpired ? 'https://schema.org/EventCancelled' : 'https://schema.org/EventScheduled',
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    location: {
+      '@type': 'Place',
+      name: walkin.companyName + ' ' + walkin.city + ' Walk-In Venue',
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: walkin.venueAddress || '',
+        addressLocality: walkin.city || 'India',
+        addressCountry: 'IN'
+      }
+    },
+    organizer: {
+      '@type': 'Organization',
+      name: walkin.companyName || 'Company',
+      url: 'https://www.employeetable.in'
+    },
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'INR',
+      availability: _isExpired ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
+      url: canonical
+    }
+  });
+
+  /* JobPosting schema */
+  var _jobSchema = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'JobPosting',
+    title: (walkin.roleTitle||'') + ' — Walk-In Interview',
+    description: 'Walk-in interview for ' + (walkin.roleTitle||'') + ' at ' + (walkin.companyName||'') + ', ' + (walkin.city||'') + '. Venue: ' + (walkin.venueAddress||'') + '. Eligibility: ' + (walkin.eligibility||'Any Graduate') + '. Documents required: ' + (walkin.documentsRequired||'Resume, ID proof') + '. Time: ' + (walkin.interviewTime||'10 AM - 5 PM'),
+    datePosted: new Date(walkin.timestamp || _now).toISOString(),
+    validThrough: new Date(_end).toISOString(),
+    hiringOrganization: {
+      '@type': 'Organization',
+      name: walkin.companyName || 'Company'
+    },
+    jobLocation: {
+      '@type': 'Place',
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: walkin.venueAddress || '',
+        addressLocality: walkin.city || 'India',
+        addressCountry: 'IN'
+      }
+    },
+    employmentType: 'FULL_TIME',
+    url: canonical
+  });
+
+  /* Breadcrumb schema */
+  var _breadcrumbSchema = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home',         item: domain + '/' },
+      { '@type': 'ListItem', position: 2, name: 'Walk-In Drives', item: domain + '/walkins' },
+      { '@type': 'ListItem', position: 3, name: walkin.companyName + ' — ' + walkin.city, item: canonical }
+    ]
+  });
+%>
+
+<script type="application/ld+json"><%- _eventSchema %></script>
+<script type="application/ld+json"><%- _jobSchema %></script>
+<script type="application/ld+json"><%- _breadcrumbSchema %></script>
+
+<% if (_isExpired) { %>
+<meta name="robots" content="noindex, nofollow">
 <% } %>
 
 <main class="container section">
 
-  <!-- ── HTML BREADCRUMB ────────────────────────────────────────────────── -->
   <nav class="breadcrumb" aria-label="Breadcrumb">
-    <a href="/">Home</a> › 
-    <a href="/walkins">Walk-In Drives</a> › 
-    <%= walkin.companyName %> <%= walkin.city %>
+    <a href="/">Home</a> ›
+    <a href="/walkins">Walk-In Drives</a> ›
+    <span><%= walkin.companyName %> — <%= walkin.city %></span>
   </nav>
 
-  <!-- ── ✅ SEO FIX: H1 FORMAT ─────────────────────────────────────────── -->
-  <h1>Walk-In Drive: <%= walkin.companyName %> <%= walkin.city %> — <%= new Date(walkin.interviewDateStart).toLocaleString('en-IN', { month: 'long', year: 'numeric' }) %></h1>
+  <h1>Walk-In Drive: <%= walkin.roleTitle %> at <%= walkin.companyName %> — <%= walkin.city %>
+    (<%= new Date(_start).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}) %>)
+  </h1>
 
-  <% if(isExpired){ %>
-    <div class="flash flash-error" style="position:static;margin-bottom:1.5rem">
-      ⏳ This walk-in drive has ended. Check <a href="/walkins">active walk-in drives</a> below.
+  <% if (_isExpired) { %>
+    <div class="flash flash-error" style="position:static;margin:1rem 0 1.5rem;">
+      ⏳ This walk-in drive has ended.
+      <a href="/walkins" style="color:inherit;font-weight:600;">View active drives →</a>
+    </div>
+  <% } else { %>
+    <div class="wk-countdown-banner wk-countdown-banner--<%= _isToday ? 'today' : 'upcoming' %>">
+      <%= _countdownText %>
+      <% if (_isToday) { %>&nbsp;— Arrive during the interview window listed below.<% } %>
     </div>
   <% } %>
 
-  <article class="job-detail-card">
-    <div class="job-card-top">
-      <!-- ── ✅ SEO FIX: COMPANY LOGO WITH ALT TEXT & LAZY LOAD ─────────── -->
-      <% if(walkin.companyLogo && walkin.companyLogo.startsWith('http')){ %>
-        <img src="<%= walkin.companyLogo %>" alt="<%= walkin.companyName %> logo — Walk-In Drive in <%= walkin.city %>" class="company-logo-lg" width="56" height="56" loading="lazy" onerror="this.style.display='none'">
-      <% } else { %>
-        <div class="company-logo-placeholder" style="width:56px;height:56px;font-size:1.5rem"><%= (walkin.companyName||'C').charAt(0).toUpperCase() %></div>
-      <% } %>
-      <div class="job-card-title-block">
-        <h2 style="margin:0"><%= walkin.roleTitle %></h2>
-        <p class="job-company" style="font-size:1.1rem"><%= walkin.companyName %> · <%= walkin.city %><%= walkin.area ? ', '+walkin.area : '' %></p>
-      </div>
-      <% if(walkin.verified){ %><span class="verified-badge" title="Verified by Employee Table" style="font-size:1.5rem">✅ Verified</span><% } %>
-    </div>
+  <div class="wk-detail-grid">
+    <article class="job-detail-card">
 
-    <div class="job-meta" style="margin:1.5rem 0;font-size:1rem">
-      <!-- ── ✅ DISPLAY DATE RANGE ──────────────────────────────────────── -->
-      <span>🗓️ <strong><%= new Date(walkin.interviewDateStart).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}) %> – <%= new Date(walkin.interviewDateEnd).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}) %></strong></span>
-      <span>⏰ <%= walkin.interviewTime %></span>
-      <span>🎓 <%= walkin.eligibility %></span>
-      <% if(walkin.package){ %><span>💰 <%= walkin.package %></span><% } %>
-    </div>
-
-    <div class="job-description">
-      <h2>📍 Venue</h2>
-      <p><%= walkin.venueAddress %></p>
-
-      <h2>📄 Documents to Carry</h2>
-      <p><%= walkin.documentsRequired %></p>
-
-      <h2>🎯 Eligibility</h2>
-      <p><%= walkin.eligibility %></p>
-
-      <h2>📞 HR Contact</h2>
-      <p>
-        <% if(walkin.hrContactPhone){ %>Phone/WhatsApp: <a href="tel:<%= walkin.hrContactPhone %>"><%= walkin.hrContactPhone %></a><br><% } %>
-        <% if(walkin.hrContactEmail){ %>Email: <a href="mailto:<%= walkin.hrContactEmail %>"><%= walkin.hrContactEmail %></a><% } %>
-      </p>
-
-      <p style="margin-top:1.5rem;padding:1rem;background:#f0fdf4;border-radius:8px;font-size:.9rem;color:#166534">
-        ✅ This listing was manually verified by Employee Table before publishing. Always carry original documents and arrive during the stated interview window.
-      </p>
-      <% if(!isExpired && faqs && faqs.length>0){ %>
-        <h2 style="margin-top:2rem">❓ Frequently Asked Questions</h2>
-        <div class="walkin-faq">
-          <% faqs.forEach(f=>{ %>
-            <details class="faq-item" style="margin-bottom:.75rem;border:1px solid #e5e7eb;border-radius:8px;padding:.85rem 1rem">
-              <summary style="cursor:pointer;font-weight:600"><%= f.q %></summary>
-              <p style="margin-top:.6rem;color:#444"><%= f.a %></p>
-            </details>
-          <% }) %>
+      <div class="job-card-top" style="margin-bottom:1.5rem">
+        <div class="company-logo-placeholder" style="width:60px;height:60px;font-size:1.6rem;flex-shrink:0" aria-hidden="true">
+          <%= (walkin.companyName||'C').charAt(0).toUpperCase() %>
         </div>
-      <% } %>
-      
-    </div>
+        <div class="job-card-title-block">
+          <h2 style="margin:0;font-size:1.3rem"><%= walkin.roleTitle %></h2>
+          <p class="job-company" style="font-size:1rem;margin-top:.25rem">
+            <%= walkin.companyName %>
+            <% if (walkin.verified) { %>
+              <span class="verified-badge-lg" style="margin-left:.5rem" aria-label="Verified by Employee Table">✅ Verified</span>
+            <% } %>
+          </p>
+        </div>
+      </div>
 
-    <div class="job-actions" style="margin-top:1.5rem">
-      <% if(walkin.hrContactPhone){ %>
-        <a href="tel:<%= walkin.hrContactPhone %>" class="btn btn-call" onclick="fetch('/walkins/<%= walkin.slug %>/click',{method:'POST'})">📞 Call HR Now</a>
-      <% } %>
-      <% if(walkin.hrContactEmail){ %>
-        <a href="mailto:<%= walkin.hrContactEmail %>?subject=<%= encodeURIComponent('Application for '+walkin.roleTitle+' - Walk-In Drive') %>" class="btn btn-primary">✉️ Email HR</a>
-      <% } %>
-      <a href="/walkins" class="btn btn-outline">← All Walk-Ins</a>
-    </div>
-  </article>
+      <div class="job-detail-meta-grid">
+        <div class="detail-item">
+          <span class="detail-label">📍 City</span>
+          <span class="detail-val"><%= walkin.city %><%= walkin.area ? ', ' + walkin.area : '' %></span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">🗓️ Date</span>
+          <span class="detail-val">
+            <%= new Date(_start).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}) %>
+            <% if (_end > _start + 3600000) { %> –
+            <%= new Date(_end).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}) %>
+            <% } %>
+          </span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">⏰ Time</span>
+          <span class="detail-val"><%= walkin.interviewTime || '10:00 AM – 5:00 PM' %></span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">🎓 Eligibility</span>
+          <span class="detail-val"><%= walkin.eligibility || 'Any Graduate' %></span>
+        </div>
+        <% if (walkin.package) { %>
+        <div class="detail-item">
+          <span class="detail-label">💰 Package</span>
+          <span class="detail-val"><%= walkin.package %></span>
+        </div>
+        <% } %>
+        <div class="detail-item">
+          <span class="detail-label">👥 Interest</span>
+          <span class="detail-val"><%= walkin.clicks || 0 %> people interested</span>
+        </div>
+      </div>
 
-  <% if(related && related.length>0){ %>
+      <div class="job-description">
+
+        <h2>📍 Venue & How to Reach</h2>
+        <div class="wk-venue-block">
+          <p style="margin-bottom:.75rem"><%= walkin.venueAddress || 'Venue details not specified.' %></p>
+          <a href="<%= _mapsUrl %>"
+             target="_blank"
+             rel="noopener noreferrer"
+             class="btn btn-outline btn-sm"
+             aria-label="Open venue on Google Maps"
+             onclick="fetch('/walkins/<%= walkin.slug %>/click',{method:'POST'})">
+            🗺️ Open in Google Maps ↗
+          </a>
+        </div>
+
+        <h2>📄 Documents to Carry</h2>
+        <div class="wk-docs-block">
+          <p><%= walkin.documentsRequired || 'Updated Resume, Aadhar Card, PAN Card, 2 Passport size photos' %></p>
+        </div>
+
+        <h2>🎯 Eligibility Criteria</h2>
+        <p><%= walkin.eligibility || 'Any Graduate. Freshers and experienced candidates welcome.' %></p>
+
+        <h2>📞 Contact HR</h2>
+        <div class="wk-contact-block">
+          <% if (walkin.hrContactPhone) { %>
+            <p>
+              <strong>Phone / WhatsApp:</strong>
+              <a href="tel:<%= walkin.hrContactPhone %>" aria-label="Call HR"><%= walkin.hrContactPhone %></a>
+            </p>
+          <% } %>
+          <% if (walkin.hrContactEmail) { %>
+            <p>
+              <strong>Email:</strong>
+              <a href="mailto:<%= walkin.hrContactEmail %>?subject=<%= encodeURIComponent('Application for ' + walkin.roleTitle + ' – Walk-In Drive ' + walkin.city) %>"
+                 aria-label="Email HR">
+                <%= walkin.hrContactEmail %>
+              </a>
+            </p>
+          <% } %>
+          <% if (!walkin.hrContactPhone && !walkin.hrContactEmail) { %>
+            <p>Walk-in directly to the venue on the interview date with your documents.</p>
+          <% } %>
+        </div>
+
+        <div class="wk-verified-note">
+          ✅ This listing was manually verified by Employee Table before publishing.
+          Always carry original documents and arrive during the stated interview window.
+        </div>
+
+      </div>
+
+      <div class="job-actions" style="margin-top:1.75rem;flex-wrap:wrap;gap:.6rem">
+        <% if (walkin.hrContactPhone) { %>
+          <a href="https://wa.me/<%= walkin.hrContactPhone.replace(/\D/g,'') %>?text=<%= encodeURIComponent('Hi, I am interested in the walk-in drive for ' + walkin.roleTitle + ' at ' + walkin.companyName + ' in ' + walkin.city + '. I found this on Employee Table.') %>"
+             target="_blank"
+             rel="noopener noreferrer"
+             class="btn btn-whatsapp"
+             aria-label="WhatsApp HR for this walk-in"
+             onclick="fetch('/walkins/<%= walkin.slug %>/click',{method:'POST'})">
+            💬 WhatsApp HR
+          </a>
+          <a href="tel:<%= walkin.hrContactPhone %>"
+             class="btn btn-call"
+             aria-label="Call HR directly">
+            📞 Call HR
+          </a>
+        <% } %>
+        <% if (!_isExpired) { %>
+          <a href="<%= _icsHref %>"
+             download="walkin-<%= walkin.slug %>.ics"
+             class="btn btn-outline"
+             aria-label="Add walk-in to your calendar">
+            📅 Add to Calendar
+          </a>
+        <% } %>
+        <button class="btn btn-outline"
+                id="shareBtn"
+                aria-label="Share this walk-in drive">
+          🔗 Share
+        </button>
+        <a href="/walkins" class="btn btn-outline" aria-label="Back to all walk-in drives">← All Walk-Ins</a>
+      </div>
+
+    </article>
+
+    <aside class="wk-detail-sidebar">
+      <% if (!_isExpired) { %>
+      <div class="sidebar-card wk-sidebar-urgency<%= _isToday ? ' wk-sidebar--today' : '' %>">
+        <p class="wk-sidebar-countdown">
+          <% if (_isToday) { %>
+            ⚡ <strong>Walk-in is TODAY</strong><br>
+            <small>Arrive during the interview window above</small>
+          <% } else if (_daysLeft === 1) { %>
+            🔔 <strong>Walk-in is TOMORROW</strong><br>
+            <small>Prepare your documents tonight</small>
+          <% } else { %>
+            🗓️ <strong>In <%= _daysLeft %> days</strong><br>
+            <small>Set a reminder so you don't miss it</small>
+          <% } %>
+        </p>
+      </div>
+      <% } %>
+
+      <div class="sidebar-card">
+        <h2>✅ How to Prepare</h2>
+        <ul class="wk-prepare-list">
+          <li>Print 2 copies of your updated resume</li>
+          <li>Carry original and photocopy of Aadhar + PAN</li>
+          <li>Bring 2 passport-size photographs</li>
+          <li>Wear formal or smart-casual attire</li>
+          <li>Arrive 15–30 min before the start time</li>
+          <li>Keep the HR contact number saved</li>
+        </ul>
+      </div>
+
+      <div class="sidebar-card sidebar-cta">
+        <h2>🔔 Get Walk-In Alerts</h2>
+        <p>Be the first to know about walk-in drives in <%= walkin.city %> and across India.</p>
+        <a href="/#subscribe" class="btn btn-primary btn-full" style="margin-top:.75rem" aria-label="Subscribe for free walk-in alerts">
+          Subscribe Free →
+        </a>
+      </div>
+    </aside>
+  </div>
+
+  <% if (related && related.length > 0) { %>
     <div class="section-header" style="margin-top:2.5rem">
       <h2>Other Walk-Ins in <%= walkin.city %></h2>
+      <a href="/walkins?city=<%= encodeURIComponent(walkin.city) %>" class="btn btn-outline btn-sm">See all →</a>
     </div>
     <div class="jobs-grid">
-      <% related.forEach(w=>{ %><%- include('partials/walkin-card',{walkin:w}) %><% }) %>
+      <% related.forEach(function(w){ %>
+        <%- include('partials/walkin-card', {walkin: w}) %>
+      <% }) %>
     </div>
   <% } %>
+
 </main>
 
-<!-- ── ✅ SEO FIX: BREADCRUMBLIST SCHEMA ────────────────────────────────── -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  "itemListElement": [
-    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.employeetable.in/" },
-    { "@type": "ListItem", "position": 2, "name": "Walk-In Drives", "item": "https://www.employeetable.in/walkins" },
-    { "@type": "ListItem", "position": 3, "name": "<%= walkin.companyName %> <%= walkin.city %>", "item": "<%= canonical %>" }
-  ]
-}
+<script>
+(function() {
+  var shareBtn = document.getElementById('shareBtn');
+  if (!shareBtn) return;
+  var shareData = {
+    title: '<%= walkin.roleTitle %> — Walk-In Drive at <%= walkin.companyName %>',
+    text: 'Walk-in interview at <%= walkin.companyName %> in <%= walkin.city %> on <%= new Date(_start).toLocaleDateString("en-IN",{day:"numeric",month:"long"}) %>. Eligibility: <%= walkin.eligibility || "Any Graduate" %>. Free, verified — Employee Table.',
+    url: '<%= canonical %>'
+  };
+  shareBtn.addEventListener('click', function() {
+    if (navigator.share) {
+      navigator.share(shareData).catch(function(){});
+    } else {
+      navigator.clipboard.writeText(shareData.url).then(function() {
+        shareBtn.textContent = '✅ Link Copied!';
+        setTimeout(function() { shareBtn.textContent = '🔗 Share'; }, 2500);
+      }).catch(function() {
+        var ta = document.createElement('textarea');
+        ta.value = shareData.url;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        shareBtn.textContent = '✅ Link Copied!';
+        setTimeout(function() { shareBtn.textContent = '🔗 Share'; }, 2500);
+      });
+    }
+  });
+})();
 </script>
 
 <%- include('partials/footer') %>

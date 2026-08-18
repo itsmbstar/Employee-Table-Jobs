@@ -107,19 +107,81 @@
   <% } %>
 </main>
 
-<section class="section bg-light" id="cities">
+
+
+<section class="section walkin-home-section" id="walkins-home">
   <div class="container">
-    <h2 class="text-center">Browse Jobs by City</h2>
-    <p class="text-center text-muted">Verified jobs across India's top hiring cities — updated every day.</p>
-    <div class="cities-grid">
-      <% cities.forEach(c=>{ %>
-        <a href="/jobs-in-<%= c.slug %>" class="city-card" aria-label="Browse jobs in <%= c.name %>">
-          <span class="city-emoji"><%= c.emoji %></span>
-          <h3><%= c.name %></h3>
-          <p><%= c.industries %></p>
-        </a>
+    <div class="section-header">
+      <div>
+        <h2 class="walkin-home-heading">Walk-in Interviews</h2>
+        <p class="walkin-home-sub">No application forms. Just walk in, interview, get hired.</p>
+      </div>
+      <a href="/walkins" class="btn btn-outline btn-sm" aria-label="View all walk-in drives">View All →</a>
+    </div>
+
+    <% if (todayWalkins && todayWalkins.length > 0) { %>
+    <div class="walkin-home-grid">
+      <% todayWalkins.forEach(function(w) {
+        var _now = Date.now();
+        var _start = w.interviewDateStart || w.timestamp || _now;
+        var _end   = w.interviewDateEnd   || _start;
+        var _todayMS = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime();
+        var _tomorrowMS = _todayMS + 86400000;
+        var _isExpired  = _now > _end;
+        var _isToday    = !_isExpired && _start >= _todayMS && _start < _tomorrowMS;
+        var _isTomorrow = !_isExpired && !_isToday && _start >= _tomorrowMS && _start < _tomorrowMS + 86400000;
+        var _daysLeft   = Math.ceil((_start - _now) / 86400000);
+        var _startDate  = new Date(_start);
+        var _dayNum     = _startDate.getDate();
+        var _monthStr   = _startDate.toLocaleDateString('en-IN', { month: 'short' });
+      %>
+      <article class="wk-home-card<% if(_isToday){ %> wk-home-card--today<% } %>">
+        <div class="wk-home-card__date wk-date--<%= _isToday ? 'today' : (_isExpired ? 'expired' : 'upcoming') %>">
+          <span class="wk-date__day"><%= _dayNum %></span>
+          <span class="wk-date__month"><%= _monthStr %></span>
+          <% if (_isToday) { %><span class="wk-badge wk-badge--today">TODAY</span><% } else if (_isTomorrow) { %><span class="wk-badge wk-badge--soon">SOON</span><% } else if (!_isExpired) { %><span class="wk-badge wk-badge--upcoming">In <%= _daysLeft %>d</span><% } %>
+        </div>
+        <div class="wk-home-card__body">
+          <div class="wk-home-card__top">
+            <div>
+              <h3 class="wk-home-card__role">
+                <a href="/walkins/<%= w.slug %>" aria-label="View <%= w.roleTitle %> walk-in at <%= w.companyName %>">
+                  <%= w.roleTitle %>
+                </a>
+              </h3>
+              <p class="wk-home-card__company">
+                <%= w.companyName %>
+                <% if (w.verified) { %><span class="wk-verified" title="Verified">✅</span><% } %>
+              </p>
+            </div>
+          </div>
+          <div class="wk-home-card__meta">
+            <span>📍 <%= w.city %><% if(w.area){ %>, <%= w.area %><% } %></span>
+            <span>⏰ <%= w.interviewTime || '10 AM – 5 PM' %></span>
+            <span>🎓 <%= w.eligibility || 'Any Graduate' %></span>
+            <% if (w.package) { %><span>💰 <%= w.package %></span><% } %>
+          </div>
+          <div class="wk-home-card__actions">
+            <a href="/walkins/<%= w.slug %>" class="btn btn-outline btn-sm" aria-label="View details for <%= w.companyName %> walk-in">View Details</a>
+            <% if (w.hrContactPhone) { %>
+              <a href="https://wa.me/<%= w.hrContactPhone.replace(/\D/g,'') %>" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp btn-sm" aria-label="WhatsApp HR for <%= w.companyName %>">💬 WhatsApp HR</a>
+            <% } %>
+          </div>
+        </div>
+      </article>
       <% }) %>
     </div>
+    <div class="walkin-home-footer">
+      <a href="/walkins" class="btn btn-primary" aria-label="Browse all verified walk-in interviews in India">
+        Browse All Walk-In Drives →
+      </a>
+    </div>
+    <% } else { %>
+    <div class="walkin-home-empty">
+      <p>🗓️ No walk-in drives right now. New drives are added daily.</p>
+      <a href="/walkins" class="btn btn-outline btn-sm">Check back soon →</a>
+    </div>
+    <% } %>
   </div>
 </section>
 
